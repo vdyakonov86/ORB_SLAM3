@@ -197,7 +197,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     AssignFeaturesToGrid();
 }
 
-Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera* pCamera,Frame* pPrevF, const IMU::Calib &ImuCalib)
+Frame::Frame(std::vector<OutputSeg> &seg_result,const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera* pCamera,Frame* pPrevF, const IMU::Calib &ImuCalib)
     :mpcpi(NULL),mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
      mTimeStamp(timeStamp), mK(K.clone()), mK_(Converter::toMatrix3f(K)),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
      mImuCalib(ImuCalib), mpImuPreintegrated(NULL), mpPrevFrame(pPrevF), mpImuPreintegratedFrame(NULL), mpReferenceKF(static_cast<KeyFrame*>(NULL)), mbIsSet(false), mbImuPreintegrated(false),
@@ -225,8 +225,29 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
 
     mTimeORB_Ext = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndExtORB - time_StartExtORB).count();
 #endif
+    std::vector<cv::Mat> human_masks;
+    std::vector<cv::Rect> human_boxes;
+    int human_class_id = 0;
 
+    for (int i = 0; i < seg_result.size(); i++)
+    {   
+        if (seg_result[i].id == human_class_id) {
+            human_masks.push_back(seg_result[i].mask);
+            human_boxes.push_back(seg_result[i].box);
+        }
+    }
+    
+    if (human_masks.size() && human_boxes.size()) {
+        std::vector<cv::KeyPoint> kp_res;
+        cv::Mat des_res;
+        std::vector<cv::KeyPoint> kp_rej;
 
+        filterFeatures(imGray, human_masks, human_boxes, mvKeys, kp_res, kp_rej, mDescriptors, des_res);
+
+        mvKeys = kp_res;
+        mDescriptors = des_res;
+    }
+    
     N = mvKeys.size();
 
     if(mvKeys.empty())
@@ -1243,6 +1264,41 @@ bool Frame::isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, bool bRight)
 
 Eigen::Vector3f Frame::UnprojectStereoFishEye(const int &i){
     return mRwc * mvStereo3Dpoints[i] + mOw;
+}
+
+void Frame::filterFeatures(
+    const cv::Mat &img, 
+    std::vector<cv::Mat> filter_masks, 
+    std::vector<cv::Rect> filter_boxes, 
+    std::vector<cv::KeyPoint> &kp, 
+    std::vector<cv::KeyPoint> &kp_res, 
+    std::vector<cv::KeyPoint> &kp_rej,
+    cv::Mat &des,
+    cv::Mat &des_res) 
+{
+    cv::Mat img_masked = img.clone();
+    img_masked.setTo(cv::Scalar(0,0,0));
+
+    for (int i = 0; i < filter_masks.size(); i++) {
+        auto mask = filter_masks[i];
+        auto box = filter_boxes[i];
+
+        img_masked(box).setTo(cv::Scalar(255,255,255), mask);
+    }
+
+    for (int i = 0; i < kp.size(); i++) {
+        auto x = kp[i].pt.x;
+        auto y = kp[i].pt.y;
+        uchar pixelValue = img_masked.at<uchar>(y, x);
+
+        if (pixelValue == 0) {
+            kp_res.push_back(kp[i]);
+            des_res.push_back(des.row(i));
+        }
+        else {
+            kp_rej.push_back(kp[i]);
+        }
+    }
 }
 
 } //namespace ORB_SLAM
