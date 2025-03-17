@@ -40,7 +40,7 @@
 #include "ImuTypes.h"
 #include "Settings.h"
 
-#include <yolo.h>
+#include <yolo-inference/yolo.h>
 
 namespace ORB_SLAM3
 {

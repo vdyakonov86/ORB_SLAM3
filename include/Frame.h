@@ -39,7 +39,7 @@
 #include "Eigen/Core"
 #include "sophus/se3.hpp"
 
-#include <yolo.h>
+#include <yolo-inference/yolo.h>
 
 namespace ORB_SLAM3
 {

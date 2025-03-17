@@ -25,7 +25,7 @@
 
 #include<System.h>
 
-#include<yolo.h>
+#include<yolo-inference/yolo.h>
 
 using namespace std;
 

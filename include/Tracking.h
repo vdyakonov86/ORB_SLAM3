@@ -41,7 +41,7 @@
 
 #include <mutex>
 #include <unordered_set>
-#include <yolo.h>
+#include <yolo-inference/yolo.h>
 
 namespace ORB_SLAM3
 {
