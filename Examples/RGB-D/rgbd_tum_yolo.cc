@@ -34,9 +34,9 @@ void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageF
 
 int main(int argc, char **argv)
 {
-    if(argc != 5)
+    if(argc != 6)
     {
-        cerr << endl << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings path_to_sequence path_to_association" << endl;
+        cerr << endl << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings path_to_sequence path_to_association path_to_model" << endl;
         return 1;
     }
 
@@ -73,8 +73,9 @@ int main(int argc, char **argv)
     cout << "Images in the sequence: " << nImages << endl << endl;
 
     // Intitialize yolo model
+    string model_path = argv[5];
     std::unique_ptr<YOLO> yolo = CreateFactory::instance().create(Backend_Type(atoi("2")), Task_Type(atoi("2")));
-	yolo->init(Algo_Type(atoi("6")), Device_Type(atoi("0")), Model_Type(atoi("0")), "/ORB_SLAM3/yolo-inference/weights/yolov11n_seg_fp32.onnx");
+	yolo->init(Algo_Type(atoi("6")), Device_Type(atoi("0")), Model_Type(atoi("0")), model_path);
     
     // Main loop
     cv::Mat imRGB, imD;
