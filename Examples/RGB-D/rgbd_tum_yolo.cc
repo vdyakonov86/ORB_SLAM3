@@ -34,10 +34,10 @@ void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageF
 
 int main(int argc, char **argv)
 {
-    if(argc != 11)
+    if(argc != 12)
     {
         cerr << endl << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings path_to_sequence path_to_association " 
-            << "backend_type task_type algo_type device_type model_type model_path" << endl;
+            << "backend_type task_type algo_type device_type model_type model_path dataset_name" << endl;
         return 1;
     }
 
@@ -152,8 +152,10 @@ int main(int argc, char **argv)
     cout << "mean tracking time: " << totaltime/nImages << endl;
 
     // Save camera trajectory
-    SLAM.SaveTrajectoryTUM("CameraTrajectory.txt");
-    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");   
+    string backend_type = argv[5];
+    string dataset_name = argv[11];
+    SLAM.SaveTrajectoryTUM("CameraTraj_" + dataset_name + "_" + backend_type + ".txt");
+    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTraj_" + dataset_name + "_" + backend_type + ".txt");   
 
     return 0;
 }
