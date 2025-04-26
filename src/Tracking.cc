@@ -1540,10 +1540,12 @@ Sophus::SE3f Tracking::GrabImageRGBD(std::vector<OutputSeg> &seg_result,const cv
     if((fabs(mDepthMapFactor-1.0f)>1e-5) || imDepth.type()!=CV_32F)
         imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
 
-    if (mSensor == System::RGBD)
+    if (!seg_result.empty() && mSensor == System::RGBD)
         mCurrentFrame = Frame(seg_result,mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
+    else if (mSensor == System::RGBD)
+        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
     else if(mSensor == System::IMU_RGBD)
-        mCurrentFrame = Frame(seg_result,mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,&mLastFrame,*mpImuCalib);
+        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,&mLastFrame,*mpImuCalib);
 
 
 
