@@ -41,8 +41,8 @@ namespace ORB_SLAM3
 {
 
 
-Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Atlas *pAtlas, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, Settings* settings, const string &_nameSeq):
-    mState(NO_IMAGES_YET), mSensor(sensor), mTrackedFr(0), mbStep(false),
+Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Atlas *pAtlas, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, const int extractorType, Settings* settings, const string &_nameSeq):
+    mState(NO_IMAGES_YET), mSensor(sensor), mExtractorType(extractorType), mTrackedFr(0), mbStep(false),
     mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), mpORBVocabulary(pVoc), mpKeyFrameDB(pKFDB),
     mbReadyToInitializate(false), mpSystem(pSys), mpViewer(NULL), bStepByStep(false),
     mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpAtlas(pAtlas), mnLastRelocFrameId(0), time_recently_lost(5.0),
@@ -593,6 +593,9 @@ void Tracking::newParameterLoader(Settings *settings) {
     float fScaleFactor = settings->scaleFactor();
 
     mpORBextractorLeft = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+    mpSuperPointExtractor = new Ort::SuperPoint("/ws/src/onnx_runtime_cpp/super_point.onnx", 0,
+        std::vector<std::vector<int64_t>>{
+            {1, Ort::SuperPoint::IMG_CHANNEL, Ort::SuperPoint::IMG_H, Ort::SuperPoint::IMG_W}});
 
     if(mSensor==System::STEREO || mSensor==System::IMU_STEREO)
         mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
@@ -1540,7 +1543,9 @@ Sophus::SE3f Tracking::GrabImageRGBD(std::vector<OutputSeg> &seg_result,const cv
     if((fabs(mDepthMapFactor-1.0f)>1e-5) || imDepth.type()!=CV_32F)
         imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
 
-    if (!seg_result.empty() && mSensor == System::RGBD)
+    if (mExtractorType == System::SUPERPOINT && mSensor == System::RGBD)
+        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpSuperPointExtractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
+    else if (!seg_result.empty() && mSensor == System::RGBD)
         mCurrentFrame = Frame(seg_result,mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
     else if (mSensor == System::RGBD)
         mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);

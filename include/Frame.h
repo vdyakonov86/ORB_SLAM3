@@ -40,11 +40,14 @@
 #include "sophus/se3.hpp"
 
 #include <yolo-inference/yolo.h>
+#include <ort_utility/ort_utility.hpp>
+#include <ort-superpoint/SuperPoint.hpp>
 
 namespace ORB_SLAM3
 {
 #define FRAME_GRID_ROWS 48
 #define FRAME_GRID_COLS 64
+typedef std::pair<std::vector<cv::KeyPoint>, cv::Mat> KeyPointAndDesc;
 
 class MapPoint;
 class KeyFrame;
@@ -70,13 +73,17 @@ public:
     Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, GeometricCamera* pCamera, cv::Mat &distCoef, const float &bf, const float &thDepth, Frame* pPrevF = static_cast<Frame*>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
 
     // Constructor for RGB-D camera and use image segmentation
-    Frame(std::vector<OutputSeg> &seg_result, const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera* pCamera,Frame* pPrevF = static_cast<Frame*>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
+    Frame(std::vector<OutputSeg> &seg_result, const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera* pCamera,Frame* pPrevF = static_cast<Frame*>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
 
+    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor, Ort::SuperPoint* extractorSP, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera* pCamera,Frame* pPrevF = static_cast<Frame*>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
+    
     // Destructor
     // ~Frame();
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
     void ExtractORB(int flag, const cv::Mat &im, const int x0, const int x1);
+
+    void ExtractSuperPoint(const cv::Mat &im);
 
     // Compute Bag of Words representation.
     void ComputeBoW();
@@ -137,6 +144,8 @@ public:
     void UpdatePoseMatrices();
 
     void filterFeaturesByMask(const cv::Mat &img, std::vector<cv::Mat> filter_masks, std::vector<cv::Rect> filter_boxes, std::vector<cv::KeyPoint> &kp, std::vector<cv::KeyPoint> &kp_res, std::vector<cv::KeyPoint> &kp_rej, cv::Mat &des, cv::Mat &des_res);
+
+    KeyPointAndDesc processFrameSuperPoint(const Ort::SuperPoint& osh, const cv::Mat& inputImg, float* dst, int borderRemove = 4, float confidenceThresh = 0.015, bool alignCorners = true, int distThresh = 2);
 
     // Returns the camera center.
     inline Eigen::Vector3f GetCameraCenter(){
@@ -201,6 +210,8 @@ public:
 
     // Feature extractor. The right is used only in the stereo case.
     ORBextractor* mpORBextractorLeft, *mpORBextractorRight;
+
+    Ort::SuperPoint* superPointExtractor;
 
     // Frame timestamp.
     double mTimeStamp;

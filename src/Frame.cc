@@ -197,6 +197,95 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     AssignFeaturesToGrid();
 }
 
+// RGBD + SuperPoint feature extraction
+Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor, Ort::SuperPoint* extractorSP, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera* pCamera,Frame* pPrevF, const IMU::Calib &ImuCalib)
+    :mpcpi(NULL),mpORBvocabulary(voc),mpORBextractorLeft(extractor), mpORBextractorRight(static_cast<ORBextractor*>(NULL)), superPointExtractor(extractorSP),
+     mTimeStamp(timeStamp), mK(K.clone()), mK_(Converter::toMatrix3f(K)),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
+     mImuCalib(ImuCalib), mpImuPreintegrated(NULL), mpPrevFrame(pPrevF), mpImuPreintegratedFrame(NULL), mpReferenceKF(static_cast<KeyFrame*>(NULL)), mbIsSet(false), mbImuPreintegrated(false),
+     mpCamera(pCamera),mpCamera2(nullptr), mbHasPose(false), mbHasVelocity(false)
+{
+    // Frame ID
+    mnId=nNextId++;
+    std::cout << "FRAME CREATE" << std::endl;
+
+    // Scale Level Info
+    mnScaleLevels = mpORBextractorLeft->GetLevels();
+    mfScaleFactor = mpORBextractorLeft->GetScaleFactor();
+    mfLogScaleFactor = log(mfScaleFactor);
+    mvScaleFactors = mpORBextractorLeft->GetScaleFactors();
+    mvInvScaleFactors = mpORBextractorLeft->GetInverseScaleFactors();
+    mvLevelSigma2 = mpORBextractorLeft->GetScaleSigmaSquares();
+    mvInvLevelSigma2 = mpORBextractorLeft->GetInverseScaleSigmaSquares();
+
+    // Feature extraction
+#ifdef REGISTER_TIMES
+    std::chrono::steady_clock::time_point time_StartExtORB = std::chrono::steady_clock::now();
+#endif
+    ExtractSuperPoint(imGray);
+#ifdef REGISTER_TIMES
+    std::chrono::steady_clock::time_point time_EndExtORB = std::chrono::steady_clock::now();
+
+    mTimeORB_Ext = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndExtORB - time_StartExtORB).count();
+#endif
+
+    N = mvKeys.size();
+
+    if(mvKeys.empty())
+        return;
+
+    UndistortKeyPoints();
+
+    ComputeStereoFromRGBD(imDepth);
+
+    mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));
+
+    mmProjectPoints.clear();
+    mmMatchedInImage.clear();
+
+    mvbOutlier = vector<bool>(N,false);
+
+    // This is done only for the first Frame (or after a change in the calibration)
+    if(mbInitialComputations)
+    {
+        ComputeImageBounds(imGray);
+
+        mfGridElementWidthInv=static_cast<float>(FRAME_GRID_COLS)/static_cast<float>(mnMaxX-mnMinX);
+        mfGridElementHeightInv=static_cast<float>(FRAME_GRID_ROWS)/static_cast<float>(mnMaxY-mnMinY);
+
+        fx = K.at<float>(0,0);
+        fy = K.at<float>(1,1);
+        cx = K.at<float>(0,2);
+        cy = K.at<float>(1,2);
+        invfx = 1.0f/fx;
+        invfy = 1.0f/fy;
+
+        mbInitialComputations=false;
+    }
+
+    mb = mbf/fx;
+
+    if(pPrevF){
+        if(pPrevF->HasVelocity())
+            SetVelocity(pPrevF->GetVelocity());
+    }
+    else{
+        mVw.setZero();
+    }
+
+    mpMutexImu = new std::mutex();
+
+    //Set no stereo fisheye information
+    Nleft = -1;
+    Nright = -1;
+    mvLeftToRightMatch = vector<int>(0);
+    mvRightToLeftMatch = vector<int>(0);
+    mvStereo3Dpoints = vector<Eigen::Vector3f>(0);
+    monoLeft = -1;
+    monoRight = -1;
+
+    AssignFeaturesToGrid();
+}
+
 // RGBD + segmentation mask feature filtering
 Frame::Frame(std::vector<OutputSeg> &seg_result,const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera* pCamera,Frame* pPrevF, const IMU::Calib &ImuCalib)
     :mpcpi(NULL),mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
@@ -531,6 +620,19 @@ void Frame::ExtractORB(int flag, const cv::Mat &im, const int x0, const int x1)
         monoLeft = (*mpORBextractorLeft)(im,cv::Mat(),mvKeys,mDescriptors,vLapping);
     else
         monoRight = (*mpORBextractorRight)(im,cv::Mat(),mvKeysRight,mDescriptorsRight,vLapping);
+}
+
+void Frame::ExtractSuperPoint(const cv::Mat &im)
+{   
+    std::vector<float> dst(Ort::SuperPoint::IMG_CHANNEL * Ort::SuperPoint::IMG_H * Ort::SuperPoint::IMG_W);
+    KeyPointAndDesc result = Frame::processFrameSuperPoint(*superPointExtractor, im, dst.data());
+
+    mvKeys = result.first;
+    mDescriptors = result.second;
+
+    std::cout << "FINISH EXTRACTION: " << std::endl;
+    std::cout << "mvKeys: " << mvKeys.size() << std:: endl;
+    std::cout << "mDescriptors rows: " << mDescriptors.rows << " mDescriptors cols: " << mDescriptors.cols << std::endl; 
 }
 
 bool Frame::isSet() const {
@@ -1387,6 +1489,38 @@ void Frame::filterFeaturesByMask(
             kp_rej.push_back(kp[i]);
         }
     }
+}
+
+KeyPointAndDesc Frame::processFrameSuperPoint(const Ort::SuperPoint& osh, const cv::Mat& inputImg, float* dst, int borderRemove, float confidenceThresh, bool alignCorners, int distThresh) {
+    int origW = inputImg.cols, origH = inputImg.rows;
+    cv::Mat scaledImg;
+    cv::resize(inputImg, scaledImg, cv::Size(Ort::SuperPoint::IMG_W, Ort::SuperPoint::IMG_H), 0, 0, cv::INTER_CUBIC);
+    osh.preprocess(dst, scaledImg.data, Ort::SuperPoint::IMG_W, Ort::SuperPoint::IMG_H, Ort::SuperPoint::IMG_CHANNEL);
+    auto inferenceOutput = osh({dst});
+
+    std::vector<cv::KeyPoint> keyPoints = osh.getKeyPoints(inferenceOutput, borderRemove, confidenceThresh);
+
+    std::vector<int> descriptorShape(inferenceOutput[1].second.begin(), inferenceOutput[1].second.end());
+    cv::Mat coarseDescriptorMat(descriptorShape.size(), descriptorShape.data(), CV_32F,
+                                inferenceOutput[1].first);  // 1 x 256 x H/8 x W/8
+
+    std::vector<int> keepIndices = osh.nmsFast(keyPoints, Ort::SuperPoint::IMG_H, Ort::SuperPoint::IMG_W, distThresh);
+
+    std::vector<cv::KeyPoint> keepKeyPoints;
+    keepKeyPoints.reserve(keepIndices.size());
+    std::transform(keepIndices.begin(), keepIndices.end(), std::back_inserter(keepKeyPoints),
+                   [&keyPoints](int idx) { return keyPoints[idx]; });
+    keyPoints = std::move(keepKeyPoints);
+
+    cv::Mat descriptors = osh.getDescriptors(coarseDescriptorMat, keyPoints, Ort::SuperPoint::IMG_H,
+                                             Ort::SuperPoint::IMG_W, alignCorners);
+
+    for (auto& keyPoint : keyPoints) {
+        keyPoint.pt.x *= static_cast<float>(origW) / Ort::SuperPoint::IMG_W;
+        keyPoint.pt.y *= static_cast<float>(origH) / Ort::SuperPoint::IMG_H;
+    }
+
+    return {keyPoints, descriptors};
 }
 
 } //namespace ORB_SLAM

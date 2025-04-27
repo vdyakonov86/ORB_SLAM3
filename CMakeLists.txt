@@ -42,6 +42,7 @@ find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(realsense2)
 find_package(yoloInference)
+find_package(ort_utility)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
@@ -126,6 +127,7 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 -lboost_serialization
 -lcrypto
 yoloInference::yoloInference
+ort_utility::ort_utility
 )
 
 # If RealSense SDK is found the library is added and its examples compiled
@@ -152,6 +154,10 @@ target_link_libraries(rgbd_tum ${PROJECT_NAME})
 add_executable(rgbd_tum_yolo
         Examples/RGB-D/rgbd_tum_yolo.cc)
 target_link_libraries(rgbd_tum_yolo ${PROJECT_NAME})
+
+add_executable(rgbd_tum_ort
+        Examples/RGB-D/rgbd_tum_ort.cc)
+target_link_libraries(rgbd_tum_ort ${PROJECT_NAME})
 
 # if(realsense2_FOUND)
 #     add_executable(rgbd_realsense_D435i
