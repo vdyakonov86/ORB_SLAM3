@@ -41,7 +41,7 @@ int main(int argc, char **argv)
     }
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::RGBD,ORB_SLAM3::System::SUPERPOINT,true);
+    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::RGBD,ORB_SLAM3::System::SUPERPOINT,false);
     float imageScale = SLAM.GetImageScale();
 
     // Vector for tracking time statistics
@@ -116,11 +116,28 @@ int main(int argc, char **argv)
     {
         totaltime+=vTimesTrack[ni];
     }
-    cout << "-------" << endl << endl;
-    cout << "median tracking time: " << vTimesTrack[nImages/2] << endl;
-    cout << "mean tracking time: " << totaltime/nImages << endl;
-
+    
+    auto medianTrackingTime = vTimesTrack[nImages/2];
+    auto meanTrackingTime = totaltime/nImages;
     string dataset_name = argv[5];
+
+    cout << "-------" << endl << endl;
+    cout << "median tracking time: " << medianTrackingTime << endl;
+    cout << "mean tracking time: " << meanTrackingTime << endl;
+    
+     // Save tracking time to txt
+    string trackingTimeFile = "time_" + dataset_name + ".txt";
+    std::ofstream outFile(trackingTimeFile); 
+    
+    if (outFile.is_open()) {
+        outFile << "median tracking time: " + std::to_string(medianTrackingTime) << std::endl;
+        outFile << "mean tracking time: " + std::to_string(meanTrackingTime) << std::endl; 
+        outFile.close();
+        std::cout << "Tracking time saved to " + trackingTimeFile << std::endl;
+    } else {
+        std::cerr << "Couldn't open file " + trackingTimeFile + " for saving tracking time" << std::endl;
+    }
+
     // Save camera trajectory
     SLAM.SaveTrajectoryTUM("CameraTraj_" + dataset_name + ".txt");
     SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTraj_" + dataset_name + ".txt");   
