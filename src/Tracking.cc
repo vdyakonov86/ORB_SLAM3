@@ -593,9 +593,9 @@ void Tracking::newParameterLoader(Settings *settings) {
     float fScaleFactor = settings->scaleFactor();
 
     mpORBextractorLeft = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-    mpSuperPointExtractor = new Ort::SuperPoint("/ws/src/onnx_runtime_cpp/super_point.onnx", 0,
-        std::vector<std::vector<int64_t>>{
-            {1, Ort::SuperPoint::IMG_CHANNEL, Ort::SuperPoint::IMG_H, Ort::SuperPoint::IMG_W}});
+    auto sp = new Ort::SuperPoint("/ws/src/onnx_runtime_cpp/super_point.onnx", 0, std::vector<std::vector<int64_t>>{{1, Ort::SuperPoint::IMG_CHANNEL, Ort::SuperPoint::IMG_H, Ort::SuperPoint::IMG_W}});
+
+    mpSuperPointExtractor = new SuperPointExtractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST,sp);
 
     if(mSensor==System::STEREO || mSensor==System::IMU_STEREO)
         mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
@@ -1544,7 +1544,7 @@ Sophus::SE3f Tracking::GrabImageRGBD(std::vector<OutputSeg> &seg_result,const cv
         imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
 
     if (mExtractorType == System::SUPERPOINT && mSensor == System::RGBD)
-        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpSuperPointExtractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
+        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpSuperPointExtractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
     else if (!seg_result.empty() && mSensor == System::RGBD)
         mCurrentFrame = Frame(seg_result,mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
     else if (mSensor == System::RGBD)

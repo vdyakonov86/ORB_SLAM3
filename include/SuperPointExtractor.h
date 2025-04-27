@@ -16,27 +16,30 @@
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef ORBEXTRACTOR_H
-#define ORBEXTRACTOR_H
+#ifndef SUPERPOINTEXTRACTOR_H
+#define SUPERPOINTEXTRACTOR_H
 
 #include <vector>
 #include <list>
 #include <opencv2/opencv.hpp>
 #include <ExtractorNode.h>
+#include <ort_utility/ort_utility.hpp>
+#include <ort-superpoint/SuperPoint.hpp>
 
 namespace ORB_SLAM3
 {
+typedef std::pair<std::vector<cv::KeyPoint>, cv::Mat> KeyPointAndDesc;
 
-class ORBextractor
+class SuperPointExtractor
 {
 public:
     
     enum {HARRIS_SCORE=0, FAST_SCORE=1 };
 
-    ORBextractor(int nfeatures, float scaleFactor, int nlevels,
-                 int iniThFAST, int minThFAST);
+    SuperPointExtractor(int nfeatures, float scaleFactor, int nlevels,
+                 int iniThFAST, int minThFAST, Ort::SuperPoint* superPoint);
 
-    ~ORBextractor(){}
+    ~SuperPointExtractor(){}
 
     // Compute the ORB features and descriptors on an image.
     // ORB are dispersed on the image using an octree.
@@ -72,11 +75,13 @@ public:
 protected:
 
     void ComputePyramid(cv::Mat image);
-    void ComputeKeyPointsOctTree(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);    
+    void ComputeKeyPointsOctTree(std::vector<std::vector<cv::KeyPoint> >& allKeypoints, std::vector<cv::Mat>& allDescriptors);    
     std::vector<cv::KeyPoint> DistributeOctTree(const std::vector<cv::KeyPoint>& vToDistributeKeys, const int &minX,
                                            const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level);
 
     void ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
+    KeyPointAndDesc processFrameSuperPoint(const Ort::SuperPoint& osh, const cv::Mat& inputImg, float* dst, int borderRemove = 4, float confidenceThresh = 0.015, bool alignCorners = true, int distThresh = 2);
+
     std::vector<cv::Point> pattern;
 
     int nfeatures;
@@ -93,6 +98,8 @@ protected:
     std::vector<float> mvInvScaleFactor;    
     std::vector<float> mvLevelSigma2;
     std::vector<float> mvInvLevelSigma2;
+
+    Ort::SuperPoint* superPoint;
 };
 
 } //namespace ORB_SLAM

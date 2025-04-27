@@ -32,6 +32,7 @@
 #include "ORBVocabulary.h"
 #include "KeyFrameDatabase.h"
 #include "ORBextractor.h"
+#include "SuperPointExtractor.h"
 #include "MapDrawer.h"
 #include "System.h"
 #include "ImuTypes.h"
@@ -42,6 +43,8 @@
 #include <mutex>
 #include <unordered_set>
 #include <yolo-inference/yolo.h>
+#include <ort_utility/ort_utility.hpp>
+#include <ort-superpoint/SuperPoint.hpp>
 
 namespace ORB_SLAM3
 {
@@ -266,7 +269,7 @@ protected:
     ORBextractor* mpIniORBextractor;
 
     // SuperPoint
-    Ort::SuperPoint* mpSuperPointExtractor;
+    SuperPointExtractor* mpSuperPointExtractor;
 
     //BoW
     ORBVocabulary* mpORBVocabulary;

@@ -22,6 +22,7 @@
 #include "MapPoint.h"
 #include "KeyFrame.h"
 #include "ORBextractor.h"
+#include "SuperPointExtractor.h"
 #include "Converter.h"
 #include "ORBmatcher.h"
 #include "GeometricCamera.h"
@@ -198,8 +199,8 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 }
 
 // RGBD + SuperPoint feature extraction
-Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor, Ort::SuperPoint* extractorSP, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera* pCamera,Frame* pPrevF, const IMU::Calib &ImuCalib)
-    :mpcpi(NULL),mpORBvocabulary(voc),mpORBextractorLeft(extractor), mpORBextractorRight(static_cast<ORBextractor*>(NULL)), superPointExtractor(extractorSP),
+Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, SuperPointExtractor* extractor, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera* pCamera,Frame* pPrevF, const IMU::Calib &ImuCalib)
+    :mpcpi(NULL),mpORBvocabulary(voc),mpSuperPointExtractor(extractor),
      mTimeStamp(timeStamp), mK(K.clone()), mK_(Converter::toMatrix3f(K)),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
      mImuCalib(ImuCalib), mpImuPreintegrated(NULL), mpPrevFrame(pPrevF), mpImuPreintegratedFrame(NULL), mpReferenceKF(static_cast<KeyFrame*>(NULL)), mbIsSet(false), mbImuPreintegrated(false),
      mpCamera(pCamera),mpCamera2(nullptr), mbHasPose(false), mbHasVelocity(false)
@@ -209,19 +210,19 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     std::cout << "FRAME CREATE" << std::endl;
 
     // Scale Level Info
-    mnScaleLevels = mpORBextractorLeft->GetLevels();
-    mfScaleFactor = mpORBextractorLeft->GetScaleFactor();
+    mnScaleLevels = mpSuperPointExtractor->GetLevels();
+    mfScaleFactor = mpSuperPointExtractor->GetScaleFactor();
     mfLogScaleFactor = log(mfScaleFactor);
-    mvScaleFactors = mpORBextractorLeft->GetScaleFactors();
-    mvInvScaleFactors = mpORBextractorLeft->GetInverseScaleFactors();
-    mvLevelSigma2 = mpORBextractorLeft->GetScaleSigmaSquares();
-    mvInvLevelSigma2 = mpORBextractorLeft->GetInverseScaleSigmaSquares();
+    mvScaleFactors = mpSuperPointExtractor->GetScaleFactors();
+    mvInvScaleFactors = mpSuperPointExtractor->GetInverseScaleFactors();
+    mvLevelSigma2 = mpSuperPointExtractor->GetScaleSigmaSquares();
+    mvInvLevelSigma2 = mpSuperPointExtractor->GetInverseScaleSigmaSquares();
 
     // Feature extraction
 #ifdef REGISTER_TIMES
     std::chrono::steady_clock::time_point time_StartExtORB = std::chrono::steady_clock::now();
 #endif
-    ExtractSuperPoint(imGray);
+    ExtractSuperPoint(imGray, 0, 0);
 #ifdef REGISTER_TIMES
     std::chrono::steady_clock::time_point time_EndExtORB = std::chrono::steady_clock::now();
 
@@ -622,15 +623,11 @@ void Frame::ExtractORB(int flag, const cv::Mat &im, const int x0, const int x1)
         monoRight = (*mpORBextractorRight)(im,cv::Mat(),mvKeysRight,mDescriptorsRight,vLapping);
 }
 
-void Frame::ExtractSuperPoint(const cv::Mat &im)
+void Frame::ExtractSuperPoint(const cv::Mat &im, const int x0, const int x1)
 {   
-    std::vector<float> dst(Ort::SuperPoint::IMG_CHANNEL * Ort::SuperPoint::IMG_H * Ort::SuperPoint::IMG_W);
-    KeyPointAndDesc result = Frame::processFrameSuperPoint(*superPointExtractor, im, dst.data());
+    vector<int> vLapping = {x0,x1};
+    monoLeft = (*mpSuperPointExtractor)(im,cv::Mat(),mvKeys,mDescriptors,vLapping);
 
-    mvKeys = result.first;
-    mDescriptors = result.second;
-
-    std::cout << "FINISH EXTRACTION: " << std::endl;
     std::cout << "mvKeys: " << mvKeys.size() << std:: endl;
     std::cout << "mDescriptors rows: " << mDescriptors.rows << " mDescriptors cols: " << mDescriptors.cols << std::endl; 
 }
@@ -1490,37 +1487,4 @@ void Frame::filterFeaturesByMask(
         }
     }
 }
-
-KeyPointAndDesc Frame::processFrameSuperPoint(const Ort::SuperPoint& osh, const cv::Mat& inputImg, float* dst, int borderRemove, float confidenceThresh, bool alignCorners, int distThresh) {
-    int origW = inputImg.cols, origH = inputImg.rows;
-    cv::Mat scaledImg;
-    cv::resize(inputImg, scaledImg, cv::Size(Ort::SuperPoint::IMG_W, Ort::SuperPoint::IMG_H), 0, 0, cv::INTER_CUBIC);
-    osh.preprocess(dst, scaledImg.data, Ort::SuperPoint::IMG_W, Ort::SuperPoint::IMG_H, Ort::SuperPoint::IMG_CHANNEL);
-    auto inferenceOutput = osh({dst});
-
-    std::vector<cv::KeyPoint> keyPoints = osh.getKeyPoints(inferenceOutput, borderRemove, confidenceThresh);
-
-    std::vector<int> descriptorShape(inferenceOutput[1].second.begin(), inferenceOutput[1].second.end());
-    cv::Mat coarseDescriptorMat(descriptorShape.size(), descriptorShape.data(), CV_32F,
-                                inferenceOutput[1].first);  // 1 x 256 x H/8 x W/8
-
-    std::vector<int> keepIndices = osh.nmsFast(keyPoints, Ort::SuperPoint::IMG_H, Ort::SuperPoint::IMG_W, distThresh);
-
-    std::vector<cv::KeyPoint> keepKeyPoints;
-    keepKeyPoints.reserve(keepIndices.size());
-    std::transform(keepIndices.begin(), keepIndices.end(), std::back_inserter(keepKeyPoints),
-                   [&keyPoints](int idx) { return keyPoints[idx]; });
-    keyPoints = std::move(keepKeyPoints);
-
-    cv::Mat descriptors = osh.getDescriptors(coarseDescriptorMat, keyPoints, Ort::SuperPoint::IMG_H,
-                                             Ort::SuperPoint::IMG_W, alignCorners);
-
-    for (auto& keyPoint : keyPoints) {
-        keyPoint.pt.x *= static_cast<float>(origW) / Ort::SuperPoint::IMG_W;
-        keyPoint.pt.y *= static_cast<float>(origH) / Ort::SuperPoint::IMG_H;
-    }
-
-    return {keyPoints, descriptors};
-}
-
 } //namespace ORB_SLAM

@@ -6,8 +6,7 @@
 #include<opencv2/core/core.hpp>
 
 #include<System.h>
-#include<ort_utility/ort_utility.hpp>
-#include <ort-superpoint/SuperPoint.hpp>
+
 using namespace std;
 
 void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageFilenamesRGB,
