@@ -80,7 +80,6 @@ protected:
                                            const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level);
 
     void ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
-    KeyPointAndDesc processFrameSuperPoint(const Ort::SuperPoint& osh, const cv::Mat& inputImg, float* dst, int borderRemove = 4, float confidenceThresh = 0.015, bool alignCorners = true, int distThresh = 2);
 
     std::vector<cv::Point> pattern;
 

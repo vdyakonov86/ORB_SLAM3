@@ -791,8 +791,7 @@ namespace ORB_SLAM3
             const int minBorderY = minBorderX;
             const int scaledPatchSize = PATCH_SIZE*mvScaleFactor[level];
 
-            std::vector<float> dst(Ort::SuperPoint::IMG_CHANNEL * Ort::SuperPoint::IMG_H * Ort::SuperPoint::IMG_W);
-            KeyPointAndDesc result = processFrameSuperPoint(*superPoint, mvImagePyramid[level], dst.data());
+            KeyPointAndDesc result = superPoint->inference(*superPoint, mvImagePyramid[level]);
 
             vector<KeyPoint>& keypoints = allKeypoints[level];
             keypoints = result.first;
@@ -929,36 +928,4 @@ namespace ORB_SLAM3
         }
 
     }
-
-    KeyPointAndDesc SuperPointExtractor::processFrameSuperPoint(const Ort::SuperPoint& osh, const cv::Mat& inputImg, float* dst, int borderRemove, float confidenceThresh, bool alignCorners, int distThresh) {
-      int origW = inputImg.cols, origH = inputImg.rows;
-      cv::Mat scaledImg;
-      cv::resize(inputImg, scaledImg, cv::Size(Ort::SuperPoint::IMG_W, Ort::SuperPoint::IMG_H), 0, 0, cv::INTER_CUBIC);
-      osh.preprocess(dst, scaledImg.data, Ort::SuperPoint::IMG_W, Ort::SuperPoint::IMG_H, Ort::SuperPoint::IMG_CHANNEL);
-      auto inferenceOutput = osh({dst});
-  
-      std::vector<cv::KeyPoint> keyPoints = osh.getKeyPoints(inferenceOutput, borderRemove, confidenceThresh);
-  
-      std::vector<int> descriptorShape(inferenceOutput[1].second.begin(), inferenceOutput[1].second.end());
-      cv::Mat coarseDescriptorMat(descriptorShape.size(), descriptorShape.data(), CV_32F,
-                                  inferenceOutput[1].first);  // 1 x 256 x H/8 x W/8
-  
-      std::vector<int> keepIndices = osh.nmsFast(keyPoints, Ort::SuperPoint::IMG_H, Ort::SuperPoint::IMG_W, distThresh);
-  
-      std::vector<cv::KeyPoint> keepKeyPoints;
-      keepKeyPoints.reserve(keepIndices.size());
-      std::transform(keepIndices.begin(), keepIndices.end(), std::back_inserter(keepKeyPoints),
-                     [&keyPoints](int idx) { return keyPoints[idx]; });
-      keyPoints = std::move(keepKeyPoints);
-  
-      cv::Mat descriptors = osh.getDescriptors(coarseDescriptorMat, keyPoints, Ort::SuperPoint::IMG_H,
-                                               Ort::SuperPoint::IMG_W, alignCorners);
-  
-      for (auto& keyPoint : keyPoints) {
-          keyPoint.pt.x *= static_cast<float>(origW) / Ort::SuperPoint::IMG_W;
-          keyPoint.pt.y *= static_cast<float>(origH) / Ort::SuperPoint::IMG_H;
-      }
-  
-      return {keyPoints, descriptors};
-  }
 } //namespace ORB_SLAM

@@ -593,7 +593,7 @@ void Tracking::newParameterLoader(Settings *settings) {
     float fScaleFactor = settings->scaleFactor();
 
     mpORBextractorLeft = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-    auto sp = new Ort::SuperPoint("/ws/src/onnx_runtime_cpp/super_point.onnx", 0, std::vector<std::vector<int64_t>>{{1, Ort::SuperPoint::IMG_CHANNEL, Ort::SuperPoint::IMG_H, Ort::SuperPoint::IMG_W}});
+    auto sp = new Ort::SuperPoint("/orbslam3_dl/ws/models/super_point.onnx", 0);
 
     mpSuperPointExtractor = new SuperPointExtractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST,sp);
 
