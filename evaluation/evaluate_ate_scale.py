@@ -42,6 +42,7 @@ trajectory and the estimated trajectory.
 """
 
 import sys
+import os, os.path
 import numpy
 import argparse
 import associate
@@ -129,6 +130,11 @@ def plot_traj(ax,stamps,traj,style,color,label):
     if len(x)>0:
         ax.plot(x,y,style,color=color,label=label)
             
+def safe_open_w(path, mode):
+    ''' Open "path" for writing, creating any parent directories as needed.
+    '''
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    return open(path, mode)
 
 if __name__=="__main__":
     # parse command line
@@ -140,17 +146,21 @@ if __name__=="__main__":
     parser.add_argument('--offset', help='time offset added to the timestamps of the second file (default: 0.0)',default=0.0)
     parser.add_argument('--scale', help='scaling factor for the second trajectory (default: 1.0)',default=1.0)
     parser.add_argument('--max_difference', help='maximally allowed time difference for matching entries (default: 10000000 ns)',default=20000000)
+    parser.add_argument('--save_dir', help='directory to save eval results (txt and figure)')
     parser.add_argument('--save', help='save aligned second trajectory to disk (format: stamp2 x2 y2 z2)')
     parser.add_argument('--save_associations', help='save associated first and aligned second trajectory to disk (format: stamp1 x1 y1 z1 stamp2 x2 y2 z2)')
-    parser.add_argument('--plot', help='plot the first and the aligned second trajectory to an image (format: png)')
+    parser.add_argument('--plot', help='plot the first and the aligned second trajectory to an image (format: png)', default=True)
     parser.add_argument('--verbose', help='print all evaluation data (otherwise, only the RMSE absolute translational error in meters after alignment will be printed)', action='store_true')
     parser.add_argument('--verbose2', help='print scale eror and RMSE absolute translational error in meters after alignment with and without scale correction', action='store_true')
     args = parser.parse_args()
-
+    print("FIRST_LIST ASSOCIATE")
     first_list = associate.read_file_list(args.first_file, False)
+    print("SECOND LIST ASSOCIATE")
     second_list = associate.read_file_list(args.second_file, False)
 
+    print("START MATCHES")
     matches = associate.associate(first_list, second_list,float(args.offset),float(args.max_difference))    
+    print("MATCHES FINISH")
     if len(matches)<2:
         sys.exit("Couldn't find matching timestamp pairs between groundtruth and estimated trajectory! Did you choose the correct sequence?")
     first_xyz = numpy.matrix([[float(value) for value in first_list[a][0:3]] for a,b in matches]).transpose()
@@ -174,15 +184,32 @@ if __name__=="__main__":
     second_xyz_full_aligned = scale * rot * second_xyz_full + trans
     
     if args.verbose:
-        print("compared_pose_pairs %d pairs"%(len(trans_error)))
+        pose_pairs = "compared_pose_pairs %d pairs"%(len(trans_error))
+        rmse = "absolute_translational_error.rmse %f m"%numpy.sqrt(numpy.dot(trans_error,trans_error) / len(trans_error))
+        mean = "absolute_translational_error.mean %f m"%numpy.mean(trans_error)
+        median = "absolute_translational_error.median %f m"%numpy.median(trans_error)
+        std = "absolute_translational_error.std %f m"%numpy.std(trans_error)
+        min = "absolute_translational_error.min %f m"%numpy.min(trans_error)
+        max = "absolute_translational_error.max %f m"%numpy.max(trans_error)
+        max_err_pair_idx = "max error pair idx: %i" %numpy.argmax(trans_error)
+        print(pose_pairs)
+        print(rmse)
+        print(mean)
+        print(median)
+        print(std)
+        print(min)
+        print(max)
+        print(max_err_pair_idx)
 
-        print("absolute_translational_error.rmse %f m"%numpy.sqrt(numpy.dot(trans_error,trans_error) / len(trans_error)))
-        print("absolute_translational_error.mean %f m"%numpy.mean(trans_error))
-        print("absolute_translational_error.median %f m"%numpy.median(trans_error))
-        print("absolute_translational_error.std %f m"%numpy.std(trans_error))
-        print("absolute_translational_error.min %f m"%numpy.min(trans_error))
-        print("absolute_translational_error.max %f m"%numpy.max(trans_error))
-        print("max idx: %i" %numpy.argmax(trans_error))
+        with safe_open_w(args.save_dir + '/results.txt', 'w') as f:
+            f.write(pose_pairs+'\n')
+            f.write(rmse+'\n')
+            f.write(mean+'\n')
+            f.write(median+'\n')
+            f.write(std+'\n')
+            f.write(min+'\n')
+            f.write(max+'\n')
+            f.write(max_err_pair_idx+'\n')
     else:
         # print("%f, %f " % (numpy.sqrt(numpy.dot(trans_error,trans_error) / len(trans_error)),  scale))
         # print("%f,%f" % (numpy.sqrt(numpy.dot(trans_error,trans_error) / len(trans_error)),  scale))
@@ -223,7 +250,7 @@ if __name__=="__main__":
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
         plt.axis('equal')
-        plt.savefig(args.plot,format="pdf")
+        plt.savefig(args.save_dir + '/plot.pdf',format="pdf")
 
 
         

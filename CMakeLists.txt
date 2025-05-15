@@ -127,6 +127,8 @@ ${Pangolin_LIBRARIES}
 ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
 ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 -lboost_serialization
+-lboost_filesystem 
+-lboost_system
 -lcrypto
 yoloInference::yoloInference
 ort_utility::ort_utility
@@ -156,10 +158,6 @@ target_link_libraries(rgbd_tum ${PROJECT_NAME})
 add_executable(rgbd_tum_yolo
         Examples/RGB-D/rgbd_tum_yolo.cc)
 target_link_libraries(rgbd_tum_yolo ${PROJECT_NAME})
-
-add_executable(rgbd_tum_ort
-        Examples/RGB-D/rgbd_tum_ort.cc)
-target_link_libraries(rgbd_tum_ort ${PROJECT_NAME})
 
 # if(realsense2_FOUND)
 #     add_executable(rgbd_realsense_D435i

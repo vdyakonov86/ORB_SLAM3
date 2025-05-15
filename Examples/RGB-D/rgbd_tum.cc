@@ -1,21 +1,3 @@
-/**
-* This file is part of ORB-SLAM3
-*
-* Copyright (C) 2017-2021 Carlos Campos, Richard Elvira, Juan J. Gómez Rodríguez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.
-* Copyright (C) 2014-2016 Raúl Mur-Artal, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.
-*
-* ORB-SLAM3 is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
-* License as published by the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* ORB-SLAM3 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
-* the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License along with ORB-SLAM3.
-* If not, see <http://www.gnu.org/licenses/>.
-*/
-
 #include<iostream>
 #include<algorithm>
 #include<fstream>
@@ -24,7 +6,26 @@
 #include<opencv2/core/core.hpp>
 
 #include<System.h>
-#include<yolo-inference/yolo.h>
+
+#include <boost/filesystem.hpp>
+
+namespace fs = boost::filesystem;
+
+bool createDirectories(std::string dir_path) {
+    try {
+        if (!fs::exists(dir_path)) {
+            bool created = fs::create_directories(dir_path);
+            if (created) {
+                std::cout << "Created directory: " << dir_path << std::endl;
+            }
+            return created;
+        }
+        return true; // Директория уже существует
+    } catch (const fs::filesystem_error& e) {
+        std::cerr << "Error creating directory: " << e.what() << std::endl;
+        return false;
+    }
+}
 
 using namespace std;
 
@@ -33,9 +34,9 @@ void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageF
 
 int main(int argc, char **argv)
 {
-    if(argc != 6)
+    if(argc != 7)
     {
-        cerr << endl << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings path_to_sequence path_to_association dataset_name" << endl;
+        cerr << endl << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings path_to_sequence path_to_association backbone out_dir_name" << endl;
         return 1;
     }
 
@@ -60,7 +61,9 @@ int main(int argc, char **argv)
     }
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::RGBD,ORB_SLAM3::System::ORB,false);
+    auto backbone = argv[6];
+    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::RGBD,ORB_SLAM3::System::ORB,true);
+
     float imageScale = SLAM.GetImageScale();
 
     // Vector for tracking time statistics
@@ -135,17 +138,22 @@ int main(int argc, char **argv)
     {
         totaltime+=vTimesTrack[ni];
     }
-
+    
     auto medianTrackingTime = vTimesTrack[nImages/2];
     auto meanTrackingTime = totaltime/nImages;
-    string dataset_name = argv[5];
+    string out_dir_name = argv[5];
 
     cout << "-------" << endl << endl;
     cout << "median tracking time: " << medianTrackingTime << endl;
     cout << "mean tracking time: " << meanTrackingTime << endl;
-    
+
+    bool is_created = createDirectories(out_dir_name);
+    if (!is_created) {
+        std::cerr << "Couldn't create directory " + out_dir_name << std::endl;
+        return 0;
+    }
      // Save tracking time to txt
-    string trackingTimeFile = "time_" + dataset_name + ".txt";
+    string trackingTimeFile = out_dir_name + "time.txt";
     std::ofstream outFile(trackingTimeFile); 
     
     if (outFile.is_open()) {
@@ -158,8 +166,8 @@ int main(int argc, char **argv)
     }
 
     // Save camera trajectory
-    SLAM.SaveTrajectoryTUM("CameraTraj_" + dataset_name + ".txt");
-    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTraj_" + dataset_name + ".txt");   
+    SLAM.SaveTrajectoryTUM(out_dir_name + "CameraTraj.txt");
+    SLAM.SaveKeyFrameTrajectoryTUM(out_dir_name + "KeyFrameTraj.txt");   
 
     return 0;
 }
