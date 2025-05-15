@@ -791,11 +791,15 @@ namespace ORB_SLAM3
             const int minBorderY = minBorderX;
             const int scaledPatchSize = PATCH_SIZE*mvScaleFactor[level];
 
-            KeyPointAndDesc result = superPoint->inference(*superPoint, mvImagePyramid[level]);
+            KeyPointAndDesc result = superPoint->inference(*superPoint, mvImagePyramid[level], 4, 0.015, true, 2);
 
             vector<KeyPoint>& keypoints = allKeypoints[level];
             keypoints = result.first;
-            allDescriptors[level] = result.second;
+            
+            cv::Mat descriptors = cv::Mat(keypoints.size(), 256, CV_32FC1);
+            cv::normalize(result.second, descriptors, 1.0, 0.0, cv::NORM_L2);
+
+            allDescriptors[level] = descriptors;
 
             // Add border to coordinates and scale information
             const int nkps = keypoints.size();
@@ -847,7 +851,7 @@ namespace ORB_SLAM3
         if( nkeypoints == 0 ) {
              _descriptors.release();
         } else {
-            _descriptors.create(nkeypoints, 256, CV_8U);
+            _descriptors.create(nkeypoints, 256, CV_32FC1);
             descriptors = _descriptors.getMat();
         }
 
@@ -869,9 +873,10 @@ namespace ORB_SLAM3
             GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
 
             // Get computed descriptors and convert from superpoint to orbslam format
-            Mat desc = cv::Mat(nkeypointsLevel, 256, CV_8U);
-            Mat desc_32f = allDescriptors[level];
-            desc_32f.convertTo(desc, CV_8U);
+            // Mat desc = cv::Mat(nkeypointsLevel, 256, CV_8U);
+            // Mat desc_32f = allDescriptors[level]; // (allDescriptors[level] + 1.0) * 127.5;
+            // desc_32f.convertTo(desc, CV_8U);
+            Mat desc = allDescriptors[level];
 
             offset += nkeypointsLevel;
 

@@ -3418,6 +3418,7 @@ void Tracking::SearchLocalPoints()
             th=15; // 15
 
         int matches = matcher.SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
+        std::cout << "SearchByProjection matches: " << matches << std::endl; 
     }
 }
 

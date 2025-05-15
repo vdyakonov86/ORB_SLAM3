@@ -629,7 +629,6 @@ void Frame::ExtractSuperPoint(const cv::Mat &im, const int x0, const int x1)
     monoLeft = (*mpSuperPointExtractor)(im,cv::Mat(),mvKeys,mDescriptors,vLapping);
 
     std::cout << "mvKeys: " << mvKeys.size() << std:: endl;
-    std::cout << "mDescriptors rows: " << mDescriptors.rows << " mDescriptors cols: " << mDescriptors.cols << std::endl; 
 }
 
 bool Frame::isSet() const {
@@ -1021,7 +1020,7 @@ void Frame::ComputeStereoMatches()
     mvuRight = vector<float>(N,-1.0f);
     mvDepth = vector<float>(N,-1.0f);
 
-    const int thOrbDist = (ORBmatcher::TH_HIGH+ORBmatcher::TH_LOW)/2;
+    const float thOrbDist = (ORBmatcher::TH_HIGH+ORBmatcher::TH_LOW)/2;
 
     const int nRows = mpORBextractorLeft->mvImagePyramid[0].rows;
 
@@ -1051,7 +1050,7 @@ void Frame::ComputeStereoMatches()
     const float maxD = mbf/minZ;
 
     // For each left keypoint search a match in the right image
-    vector<pair<int, int> > vDistIdx;
+    vector<pair<float, int> > vDistIdx;
     vDistIdx.reserve(N);
 
     for(int iL=0; iL<N; iL++)
@@ -1072,7 +1071,7 @@ void Frame::ComputeStereoMatches()
         if(maxU<0)
             continue;
 
-        int bestDist = ORBmatcher::TH_HIGH;
+        float bestDist = ORBmatcher::TH_MAX;
         size_t bestIdxR = 0;
 
         const cv::Mat &dL = mDescriptors.row(iL);
@@ -1115,7 +1114,7 @@ void Frame::ComputeStereoMatches()
             const int w = 5;
             cv::Mat IL = mpORBextractorLeft->mvImagePyramid[kpL.octave].rowRange(scaledvL-w,scaledvL+w+1).colRange(scaleduL-w,scaleduL+w+1);
 
-            int bestDist = INT_MAX;
+            float bestDist = ORBmatcher::TH_MAX;
             int bestincR = 0;
             const int L = 5;
             vector<float> vDists;
@@ -1167,7 +1166,7 @@ void Frame::ComputeStereoMatches()
                 }
                 mvDepth[iL]=mbf/disparity;
                 mvuRight[iL] = bestuR;
-                vDistIdx.push_back(pair<int,int>(bestDist,iL));
+                vDistIdx.push_back(pair<float,int>(bestDist,iL));
             }
         }
     }
