@@ -64,6 +64,7 @@ src/LoopClosing.cc
 src/ORBextractor.cc
 src/SuperPointExtractor.cc
 src/ORBmatcher.cc
+src/SuperPointMatcher.cc
 src/FrameDrawer.cc
 src/Converter.cc
 src/MapPoint.cc
@@ -93,6 +94,7 @@ include/LoopClosing.h
 include/ORBextractor.h
 include/SuperPointExtractor.h
 include/ORBmatcher.h
+include/SuperPointMatcher.h
 include/FrameDrawer.h
 include/Converter.h
 include/MapPoint.h

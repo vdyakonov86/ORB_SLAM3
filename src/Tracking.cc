@@ -20,6 +20,7 @@
 #include "Tracking.h"
 
 #include "ORBmatcher.h"
+#include "SuperPointMatcher.h"
 #include "FrameDrawer.h"
 #include "Converter.h"
 #include "G2oTypes.h"
@@ -1797,7 +1798,7 @@ void Tracking::ResetFrameIMU()
     // TODO To implement...
 }
 
-
+// Здесь начинается пайплайн трекинга
 void Tracking::Track()
 {
 
@@ -1952,14 +1953,17 @@ void Tracking::Track()
                 if((!mbVelocity && !pCurrentMap->isImuInitialized()) || mCurrentFrame.mnId<mnLastRelocFrameId+2)
                 {
                     Verbose::PrintMess("TRACK: Track with respect to the reference KF ", Verbose::VERBOSITY_DEBUG);
-                    bOK = TrackReferenceKeyFrame();
+                    // bOK = TrackReferenceKeyFrame();
+                    bOK = TrackReferenceKeyFrameSuperPoint();
                 }
                 else
                 {
                     Verbose::PrintMess("TRACK: Track with motion model", Verbose::VERBOSITY_DEBUG);
-                    bOK = TrackWithMotionModel();
+                    // bOK = TrackWithMotionModel();
+                    bOK = TrackWithMotionModelSuperPoint();
                     if(!bOK)
-                        bOK = TrackReferenceKeyFrame();
+                        // bOK = TrackReferenceKeyFrame();
+                        bOK = TrackReferenceKeyFrameSuperPoint();
                 }
 
 
@@ -2007,7 +2011,8 @@ void Tracking::Track()
                     else
                     {
                         // Relocalization
-                        bOK = Relocalization();
+                        // bOK = Relocalization();
+                        bOK = RelocalizationSuperPoint();
                         //std::cout << "mCurrentFrame.mTimeStamp:" << to_string(mCurrentFrame.mTimeStamp) << std::endl;
                         //std::cout << "mTimeStampLost:" << to_string(mTimeStampLost) << std::endl;
                         if(mCurrentFrame.mTimeStamp-mTimeStampLost>3.0f && !bOK)
@@ -2047,7 +2052,8 @@ void Tracking::Track()
             {
                 if(mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
                     Verbose::PrintMess("IMU. State LOST", Verbose::VERBOSITY_NORMAL);
-                bOK = Relocalization();
+                // bOK = Relocalization();
+                bOK = RelocalizationSuperPoint();
             }
             else
             {
@@ -2056,11 +2062,13 @@ void Tracking::Track()
                     // In last frame we tracked enough MapPoints in the map
                     if(mbVelocity)
                     {
-                        bOK = TrackWithMotionModel();
+                        // bOK = TrackWithMotionModel();
+                        bOK = TrackWithMotionModelSuperPoint();
                     }
                     else
                     {
-                        bOK = TrackReferenceKeyFrame();
+                        // bOK = TrackReferenceKeyFrame();
+                        bOK = TrackReferenceKeyFrameSuperPoint();
                     }
                 }
                 else
@@ -2078,12 +2086,14 @@ void Tracking::Track()
                     Sophus::SE3f TcwMM;
                     if(mbVelocity)
                     {
-                        bOKMM = TrackWithMotionModel();
+                        // bOKMM = TrackWithMotionModel();
+                        bOKMM = TrackWithMotionModelSuperPoint();
                         vpMPsMM = mCurrentFrame.mvpMapPoints;
                         vbOutMM = mCurrentFrame.mvbOutlier;
                         TcwMM = mCurrentFrame.GetPose();
                     }
-                    bOKReloc = Relocalization();
+                    // bOKReloc = Relocalization();
+                    bOKReloc = RelocalizationSuperPoint();
 
                     if(bOKMM && !bOKReloc)
                     {
@@ -2131,7 +2141,8 @@ void Tracking::Track()
         {
             if(bOK)
             {
-                bOK = TrackLocalMap();
+                // bOK = TrackLocalMap();
+                bOK = TrackLocalMapSuperPoint();
 
             }
             if(!bOK)
@@ -2143,7 +2154,8 @@ void Tracking::Track()
             // a local map and therefore we do not perform TrackLocalMap(). Once the system relocalizes
             // the camera we will use the local map again.
             if(bOK && !mbVO)
-                bOK = TrackLocalMap();
+                bOK = TrackLocalMapSuperPoint();
+                // bOK = TrackLocalMap();
         }
 
         if(bOK)
@@ -2497,6 +2509,7 @@ void Tracking::MonocularInitialization()
         // Find correspondences
         ORBmatcher matcher(0.9,true);
         int nmatches = matcher.SearchForInitialization(mInitialFrame,mCurrentFrame,mvbPrevMatched,mvIniMatches,100);
+        cout << "SearchForInitialization nmatches: " << nmatches << endl;
 
         // Check if there are enough correspondences
         if(nmatches<100)
@@ -2785,6 +2798,64 @@ bool Tracking::TrackReferenceKeyFrame()
         return nmatchesMap>=10;
 }
 
+bool Tracking::TrackReferenceKeyFrameSuperPoint()
+{
+    // Compute Bag of Words vector
+    mCurrentFrame.ComputeBoW();
+
+    // We perform first an ORB matching with the reference keyframe
+    // If enough matches are found we setup a PnP solver
+    SuperPointMatcher matcher(0.7,true);
+    vector<MapPoint*> vpMapPointMatches;
+
+    int nmatches = matcher.SearchByBoW(mpReferenceKF,mCurrentFrame,vpMapPointMatches);
+    cout << "TrackReferenceKeyFrameSuperPoint SearchByBoW nmatches: " << nmatches << endl;
+    if(nmatches<15)
+    {
+        cout << "TRACK_REF_KF: Less than 15 matches!!\n";
+        return false;
+    }
+
+    mCurrentFrame.mvpMapPoints = vpMapPointMatches;
+    mCurrentFrame.SetPose(mLastFrame.GetPose());
+
+    Optimizer::PoseOptimization(&mCurrentFrame);
+
+    // Discard outliers
+    int nmatchesMap = 0;
+    for(int i =0; i<mCurrentFrame.N; i++)
+    {
+        //if(i >= mCurrentFrame.Nleft) break;
+        if(mCurrentFrame.mvpMapPoints[i])
+        {
+            if(mCurrentFrame.mvbOutlier[i])
+            {
+                MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
+
+                mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
+                mCurrentFrame.mvbOutlier[i]=false;
+                if(i < mCurrentFrame.Nleft){
+                    pMP->mbTrackInView = false;
+                }
+                else{
+                    pMP->mbTrackInViewR = false;
+                }
+                pMP->mbTrackInView = false;
+                pMP->mnLastFrameSeen = mCurrentFrame.mnId;
+                nmatches--;
+            }
+            else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
+                nmatchesMap++;
+        }
+    }
+
+    if (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
+        return true;
+    else
+        return nmatchesMap>=10;
+}
+
+
 void Tracking::UpdateLastFrame()
 {
     // Update pose according to reference keyframe
@@ -2953,6 +3024,89 @@ bool Tracking::TrackWithMotionModel()
         return nmatchesMap>=10;
 }
 
+
+bool Tracking::TrackWithMotionModelSuperPoint()
+{
+    SuperPointMatcher matcher(0.9,true);
+
+    // Update last frame pose according to its reference keyframe
+    // Create "visual odometry" points if in Localization Mode
+    UpdateLastFrame();
+
+    if (mpAtlas->isImuInitialized() && (mCurrentFrame.mnId>mnLastRelocFrameId+mnFramesToResetIMU))
+    {
+        // Predict state with IMU if it is initialized and it doesnt need reset
+        PredictStateIMU();
+        return true;
+    }
+    else
+    {
+        mCurrentFrame.SetPose(mVelocity * mLastFrame.GetPose());
+    }
+
+    fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
+
+    // Project points seen in previous frame
+    int th;
+
+    if(mSensor==System::STEREO)
+        th=7;
+    else
+        th=15;
+
+    int nmatches = matcher.SearchByProjection(mCurrentFrame,mLastFrame,th,mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR);
+    cout << "TrackWithMotionModelSuperPoint SearchByProjection nmatches: " << nmatches << endl;
+
+    if(nmatches<20)
+    {
+        Verbose::PrintMess("Not enough matches!!", Verbose::VERBOSITY_NORMAL);
+        if (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
+            return true;
+        else
+            return false;
+    }
+
+    // Optimize frame pose with all matches
+    Optimizer::PoseOptimization(&mCurrentFrame);
+
+    // Discard outliers
+    int nmatchesMap = 0;
+    for(int i =0; i<mCurrentFrame.N; i++)
+    {
+        if(mCurrentFrame.mvpMapPoints[i])
+        {
+            if(mCurrentFrame.mvbOutlier[i])
+            {
+                MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
+
+                mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
+                mCurrentFrame.mvbOutlier[i]=false;
+                if(i < mCurrentFrame.Nleft){
+                    pMP->mbTrackInView = false;
+                }
+                else{
+                    pMP->mbTrackInViewR = false;
+                }
+                pMP->mnLastFrameSeen = mCurrentFrame.mnId;
+                nmatches--;
+            }
+            else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
+                nmatchesMap++;
+        }
+    }
+
+    if(mbOnlyTracking)
+    {
+        mbVO = nmatchesMap<10;
+        return nmatches>20;
+    }
+
+    if (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
+        return true;
+    else
+        return nmatchesMap>=10;
+}
+
 bool Tracking::TrackLocalMap()
 {
 
@@ -2962,6 +3116,121 @@ bool Tracking::TrackLocalMap()
 
     UpdateLocalMap();
     SearchLocalPoints();
+
+    // TOO check outliers before PO
+    int aux1 = 0, aux2=0;
+    for(int i=0; i<mCurrentFrame.N; i++)
+        if( mCurrentFrame.mvpMapPoints[i])
+        {
+            aux1++;
+            if(mCurrentFrame.mvbOutlier[i])
+                aux2++;
+        }
+
+    int inliers;
+    if (!mpAtlas->isImuInitialized())
+        Optimizer::PoseOptimization(&mCurrentFrame);
+    else
+    {
+        if(mCurrentFrame.mnId<=mnLastRelocFrameId+mnFramesToResetIMU)
+        {
+            Verbose::PrintMess("TLM: PoseOptimization ", Verbose::VERBOSITY_DEBUG);
+            Optimizer::PoseOptimization(&mCurrentFrame);
+        }
+        else
+        {
+            // if(!mbMapUpdated && mState == OK) //  && (mnMatchesInliers>30))
+            if(!mbMapUpdated) //  && (mnMatchesInliers>30))
+            {
+                Verbose::PrintMess("TLM: PoseInertialOptimizationLastFrame ", Verbose::VERBOSITY_DEBUG);
+                inliers = Optimizer::PoseInertialOptimizationLastFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
+            }
+            else
+            {
+                Verbose::PrintMess("TLM: PoseInertialOptimizationLastKeyFrame ", Verbose::VERBOSITY_DEBUG);
+                inliers = Optimizer::PoseInertialOptimizationLastKeyFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
+            }
+        }
+    }
+
+    aux1 = 0, aux2 = 0;
+    for(int i=0; i<mCurrentFrame.N; i++)
+        if( mCurrentFrame.mvpMapPoints[i])
+        {
+            aux1++;
+            if(mCurrentFrame.mvbOutlier[i])
+                aux2++;
+        }
+
+    mnMatchesInliers = 0;
+
+    // Update MapPoints Statistics
+    for(int i=0; i<mCurrentFrame.N; i++)
+    {
+        if(mCurrentFrame.mvpMapPoints[i])
+        {
+            if(!mCurrentFrame.mvbOutlier[i])
+            {
+                mCurrentFrame.mvpMapPoints[i]->IncreaseFound();
+                if(!mbOnlyTracking)
+                {
+                    if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
+                        mnMatchesInliers++;
+                }
+                else
+                    mnMatchesInliers++;
+            }
+            else if(mSensor==System::STEREO)
+                mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint*>(NULL);
+        }
+    }
+
+    // Decide if the tracking was succesful
+    // More restrictive if there was a relocalization recently
+    mpLocalMapper->mnMatchesInliers=mnMatchesInliers;
+    if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && mnMatchesInliers<50)
+        return false;
+
+    if((mnMatchesInliers>10)&&(mState==RECENTLY_LOST))
+        return true;
+
+
+    if (mSensor == System::IMU_MONOCULAR)
+    {
+        if((mnMatchesInliers<15 && mpAtlas->isImuInitialized())||(mnMatchesInliers<50 && !mpAtlas->isImuInitialized()))
+        {
+            return false;
+        }
+        else
+            return true;
+    }
+    else if (mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
+    {
+        if(mnMatchesInliers<15)
+        {
+            return false;
+        }
+        else
+            return true;
+    }
+    else
+    {
+        if(mnMatchesInliers<30)
+            return false;
+        else
+            return true;
+    }
+}
+
+bool Tracking::TrackLocalMapSuperPoint()
+{
+
+    // We have an estimation of the camera pose and some map points tracked in the frame.
+    // We retrieve the local map and try to find matches to points in the local map.
+    mTrackedFr++;
+
+    UpdateLocalMap();
+    SearchLocalPointsSuperPoint();
 
     // TOO check outliers before PO
     int aux1 = 0, aux2=0;
@@ -3422,6 +3691,81 @@ void Tracking::SearchLocalPoints()
     }
 }
 
+void Tracking::SearchLocalPointsSuperPoint()
+{
+    // Do not search map points already matched
+    for(vector<MapPoint*>::iterator vit=mCurrentFrame.mvpMapPoints.begin(), vend=mCurrentFrame.mvpMapPoints.end(); vit!=vend; vit++)
+    {
+        MapPoint* pMP = *vit;
+        if(pMP)
+        {
+            if(pMP->isBad())
+            {
+                *vit = static_cast<MapPoint*>(NULL);
+            }
+            else
+            {
+                pMP->IncreaseVisible();
+                pMP->mnLastFrameSeen = mCurrentFrame.mnId;
+                pMP->mbTrackInView = false;
+                pMP->mbTrackInViewR = false;
+            }
+        }
+    }
+
+    int nToMatch=0;
+
+    // Project points in frame and check its visibility
+    for(vector<MapPoint*>::iterator vit=mvpLocalMapPoints.begin(), vend=mvpLocalMapPoints.end(); vit!=vend; vit++)
+    {
+        MapPoint* pMP = *vit;
+
+        if(pMP->mnLastFrameSeen == mCurrentFrame.mnId)
+            continue;
+        if(pMP->isBad())
+            continue;
+        // Project (this fills MapPoint variables for matching)
+        if(mCurrentFrame.isInFrustum(pMP,0.5))
+        {
+            pMP->IncreaseVisible();
+            nToMatch++;
+        }
+        if(pMP->mbTrackInView)
+        {
+            mCurrentFrame.mmProjectPoints[pMP->mnId] = cv::Point2f(pMP->mTrackProjX, pMP->mTrackProjY);
+        }
+    }
+
+    if(nToMatch>0)
+    {
+        SuperPointMatcher matcher(0.8);
+        int th = 1;
+        if(mSensor==System::RGBD || mSensor==System::IMU_RGBD)
+            th=3;
+        if(mpAtlas->isImuInitialized())
+        {
+            if(mpAtlas->GetCurrentMap()->GetIniertialBA2())
+                th=2;
+            else
+                th=6;
+        }
+        else if(!mpAtlas->isImuInitialized() && (mSensor==System::IMU_MONOCULAR || mSensor==System::IMU_STEREO || mSensor == System::IMU_RGBD))
+        {
+            th=10;
+        }
+
+        // If the camera has been relocalised recently, perform a coarser search
+        if(mCurrentFrame.mnId<mnLastRelocFrameId+2)
+            th=5;
+
+        if(mState==LOST || mState==RECENTLY_LOST) // Lost for less than 1 second
+            th=15; // 15
+
+        int matches = matcher.SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
+        std::cout << "SearchLocalPointsSuperPoint SearchByProjection matches: " << matches << std::endl; 
+    }
+}
+
 void Tracking::UpdateLocalMap()
 {
     // This is for visualization
@@ -3746,6 +4090,180 @@ bool Tracking::Relocalization()
                                 if(mCurrentFrame.mvpMapPoints[ip])
                                     sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
                             nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,3,64);
+
+                            // Final optimization
+                            if(nGood+nadditional>=50)
+                            {
+                                nGood = Optimizer::PoseOptimization(&mCurrentFrame);
+
+                                for(int io =0; io<mCurrentFrame.N; io++)
+                                    if(mCurrentFrame.mvbOutlier[io])
+                                        mCurrentFrame.mvpMapPoints[io]=NULL;
+                            }
+                        }
+                    }
+                }
+
+
+                // If the pose is supported by enough inliers stop ransacs and continue
+                if(nGood>=50)
+                {
+                    bMatch = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if(!bMatch)
+    {
+        return false;
+    }
+    else
+    {
+        mnLastRelocFrameId = mCurrentFrame.mnId;
+        cout << "Relocalized!!" << endl;
+        return true;
+    }
+
+}
+
+bool Tracking::RelocalizationSuperPoint()
+{
+    Verbose::PrintMess("Starting relocalization", Verbose::VERBOSITY_NORMAL);
+    // Compute Bag of Words Vector
+    mCurrentFrame.ComputeBoW();
+
+    // Relocalization is performed when tracking is lost
+    // Track Lost: Query KeyFrame Database for keyframe candidates for relocalisation
+    vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectRelocalizationCandidates(&mCurrentFrame, mpAtlas->GetCurrentMap());
+
+    if(vpCandidateKFs.empty()) {
+        Verbose::PrintMess("There are not candidates", Verbose::VERBOSITY_NORMAL);
+        return false;
+    }
+
+    const int nKFs = vpCandidateKFs.size();
+
+    // We perform first an ORB matching with each candidate
+    // If enough matches are found we setup a PnP solver
+    SuperPointMatcher matcher(0.75,true);
+
+    vector<MLPnPsolver*> vpMLPnPsolvers;
+    vpMLPnPsolvers.resize(nKFs);
+
+    vector<vector<MapPoint*> > vvpMapPointMatches;
+    vvpMapPointMatches.resize(nKFs);
+
+    vector<bool> vbDiscarded;
+    vbDiscarded.resize(nKFs);
+
+    int nCandidates=0;
+
+    for(int i=0; i<nKFs; i++)
+    {
+        KeyFrame* pKF = vpCandidateKFs[i];
+        if(pKF->isBad())
+            vbDiscarded[i] = true;
+        else
+        {
+            int nmatches = matcher.SearchByBoW(pKF,mCurrentFrame,vvpMapPointMatches[i]);
+            cout << "RelocalizationSuperPoint SearchByBoW nmatches: " << nmatches << endl;
+
+            if(nmatches<15)
+            {
+                vbDiscarded[i] = true;
+                continue;
+            }
+            else
+            {
+                MLPnPsolver* pSolver = new MLPnPsolver(mCurrentFrame,vvpMapPointMatches[i]);
+                pSolver->SetRansacParameters(0.99,10,300,6,0.5,5.991);  //This solver needs at least 6 points
+                vpMLPnPsolvers[i] = pSolver;
+                nCandidates++;
+            }
+        }
+    }
+
+    // Alternatively perform some iterations of P4P RANSAC
+    // Until we found a camera pose supported by enough inliers
+    bool bMatch = false;
+    SuperPointMatcher matcher2(0.9,true);
+
+    while(nCandidates>0 && !bMatch)
+    {
+        for(int i=0; i<nKFs; i++)
+        {
+            if(vbDiscarded[i])
+                continue;
+
+            // Perform 5 Ransac Iterations
+            vector<bool> vbInliers;
+            int nInliers;
+            bool bNoMore;
+
+            MLPnPsolver* pSolver = vpMLPnPsolvers[i];
+            Eigen::Matrix4f eigTcw;
+            bool bTcw = pSolver->iterate(5,bNoMore,vbInliers,nInliers, eigTcw);
+
+            // If Ransac reachs max. iterations discard keyframe
+            if(bNoMore)
+            {
+                vbDiscarded[i]=true;
+                nCandidates--;
+            }
+
+            // If a Camera Pose is computed, optimize
+            if(bTcw)
+            {
+                Sophus::SE3f Tcw(eigTcw);
+                mCurrentFrame.SetPose(Tcw);
+                // Tcw.copyTo(mCurrentFrame.mTcw);
+
+                set<MapPoint*> sFound;
+
+                const int np = vbInliers.size();
+
+                for(int j=0; j<np; j++)
+                {
+                    if(vbInliers[j])
+                    {
+                        mCurrentFrame.mvpMapPoints[j]=vvpMapPointMatches[i][j];
+                        sFound.insert(vvpMapPointMatches[i][j]);
+                    }
+                    else
+                        mCurrentFrame.mvpMapPoints[j]=NULL;
+                }
+
+                int nGood = Optimizer::PoseOptimization(&mCurrentFrame);
+
+                if(nGood<10)
+                    continue;
+
+                for(int io =0; io<mCurrentFrame.N; io++)
+                    if(mCurrentFrame.mvbOutlier[io])
+                        mCurrentFrame.mvpMapPoints[io]=static_cast<MapPoint*>(NULL);
+
+                // If few inliers, search by projection in a coarse window and optimize again
+                if(nGood<50)
+                {
+                    int nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,10,100);
+                    cout << "RelocalizationSuperPoint SearchByProjection nadditional 10,100: " << nadditional << endl;
+
+                    if(nadditional+nGood>=50)
+                    {
+                        nGood = Optimizer::PoseOptimization(&mCurrentFrame);
+
+                        // If many inliers but still not enough, search by projection again in a narrower window
+                        // the camera has been already optimized with many points
+                        if(nGood>30 && nGood<50)
+                        {
+                            sFound.clear();
+                            for(int ip =0; ip<mCurrentFrame.N; ip++)
+                                if(mCurrentFrame.mvpMapPoints[ip])
+                                    sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
+                            nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,3,64);
+                            cout << "RelocalizationSuperPoint SearchByProjection nadditional 3,64: " << nadditional << endl;
 
                             // Final optimization
                             if(nGood+nadditional>=50)

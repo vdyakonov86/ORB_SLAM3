@@ -214,18 +214,23 @@ protected:
 
     void CheckReplacedInLastFrame();
     bool TrackReferenceKeyFrame();
+    bool TrackReferenceKeyFrameSuperPoint();
     void UpdateLastFrame();
     bool TrackWithMotionModel();
+    bool TrackWithMotionModelSuperPoint();
     bool PredictStateIMU();
 
     bool Relocalization();
+    bool RelocalizationSuperPoint();
 
     void UpdateLocalMap();
     void UpdateLocalPoints();
     void UpdateLocalKeyFrames();
 
     bool TrackLocalMap();
+    bool TrackLocalMapSuperPoint();
     void SearchLocalPoints();
+    void SearchLocalPointsSuperPoint();
 
     bool NeedNewKeyFrame();
     void CreateNewKeyFrame();
