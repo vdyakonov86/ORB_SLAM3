@@ -45,6 +45,7 @@
 #include <yolo-inference/yolo.h>
 #include <ort_utility/ort_utility.hpp>
 #include <ort-superpoint/SuperPoint.hpp>
+#include <ort-superglue/SuperGlue.hpp>
 
 namespace ORB_SLAM3
 {
@@ -364,6 +365,12 @@ protected:
     int initID, lastID;
 
     Sophus::SE3f mTlr;
+
+    int mCameraHeight;
+    int mCameraWidth;
+    cv::Size mImageSize;
+
+    Ort::SuperGlue* mSuperGlueModel;
 
     void newParameterLoader(Settings* settings);
 

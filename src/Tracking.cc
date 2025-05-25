@@ -21,6 +21,7 @@
 
 #include "ORBmatcher.h"
 #include "SuperPointMatcher.h"
+#include "SuperGlueMatcher.h"
 #include "FrameDrawer.h"
 #include "Converter.h"
 #include "G2oTypes.h"
@@ -50,6 +51,8 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     mnInitialFrameId(0), mbCreatedMap(false), mnFirstFrameId(0), mpCamera2(nullptr), mpLastKeyFrame(static_cast<KeyFrame*>(NULL))
 {
     // Load camera parameters from settings file
+    mImageSize = cv::Size(640, 480); // TODO: INITIALIZE FROM CONFIG
+
     if(settings){
         newParameterLoader(settings);
     }
@@ -597,6 +600,8 @@ void Tracking::newParameterLoader(Settings *settings) {
     auto sp = new Ort::SuperPoint("/orbslam3_dl/ws/models/super_point.onnx", 0);
 
     mpSuperPointExtractor = new SuperPointExtractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST,sp);
+
+    mSuperGlueModel = new Ort::SuperGlue("/orbslam3_dl/ws/models/super_glue.onnx", 0);
 
     if(mSensor==System::STEREO || mSensor==System::IMU_STEREO)
         mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
@@ -2734,7 +2739,8 @@ bool Tracking::TrackReferenceKeyFrame()
     // We perform first an ORB matching with the reference keyframe
     // If enough matches are found we setup a PnP solver
     // ORBmatcher matcher(0.7,true);
-    SuperPointMatcher matcher(0.7,true);
+    // SuperPointMatcher matcher(0.7,true);
+    SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.7, true);
     vector<MapPoint*> vpMapPointMatches;
 
     int nmatches = matcher.SearchByBoW(mpReferenceKF,mCurrentFrame,vpMapPointMatches);
@@ -2865,7 +2871,8 @@ void Tracking::UpdateLastFrame()
 bool Tracking::TrackWithMotionModel()
 {
     // ORBmatcher matcher(0.9,true);
-    SuperPointMatcher matcher(0.9,true);
+    // SuperPointMatcher matcher(0.9,true);
+    SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.9, true);
 
     // Update last frame pose according to its reference keyframe
     // Create "visual odometry" points if in Localization Mode
@@ -3400,7 +3407,9 @@ void Tracking::SearchLocalPoints()
     if(nToMatch>0)
     {
         // ORBmatcher matcher(0.8);
-        SuperPointMatcher matcher(0.8);
+        // SuperPointMatcher matcher(0.8);
+        SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.8, true);
+
         int th = 1;
         if(mSensor==System::RGBD || mSensor==System::IMU_RGBD)
             th=3;
@@ -3640,7 +3649,8 @@ bool Tracking::Relocalization()
     // We perform first an ORB matching with each candidate
     // If enough matches are found we setup a PnP solver
     // ORBmatcher matcher(0.75,true);
-    SuperPointMatcher matcher(0.75,true);
+    // SuperPointMatcher matcher(0.75,true);
+    SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.75, true);
 
     vector<MLPnPsolver*> vpMLPnPsolvers;
     vpMLPnPsolvers.resize(nKFs);
@@ -3681,7 +3691,8 @@ bool Tracking::Relocalization()
     // Until we found a camera pose supported by enough inliers
     bool bMatch = false;
     // ORBmatcher matcher2(0.9,true);
-    SuperPointMatcher matcher2(0.9,true);
+    // SuperPointMatcher matcher2(0.9,true);
+    SuperGlueMatcher matcher2(mSuperGlueModel, mImageSize, 0.9, true);
 
     while(nCandidates>0 && !bMatch)
     {

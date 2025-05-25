@@ -65,6 +65,7 @@ src/ORBextractor.cc
 src/SuperPointExtractor.cc
 src/ORBmatcher.cc
 src/SuperPointMatcher.cc
+src/SuperGlueMatcher.cc
 src/FrameDrawer.cc
 src/Converter.cc
 src/MapPoint.cc
@@ -95,6 +96,7 @@ include/ORBextractor.h
 include/SuperPointExtractor.h
 include/ORBmatcher.h
 include/SuperPointMatcher.h
+include/SuperGlueMatcher.h
 include/FrameDrawer.h
 include/Converter.h
 include/MapPoint.h

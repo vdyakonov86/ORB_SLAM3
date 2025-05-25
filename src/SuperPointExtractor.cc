@@ -801,6 +801,16 @@ namespace ORB_SLAM3
 
             allDescriptors[level] = descriptors;
 
+            // for (int i=0; i < result.second.rows; i++) {
+            //     cv::normalize(result.second.row(i), result.second.row(i), 1.0, 0.0, cv::NORM_L2);
+            //     // Вычисляем L2-норму дескриптора
+            //     double norm = cv::norm(result.second.row(i), cv::NORM_L2);
+            //     // Проверяем, близка ли норма к 1 (с учетом погрешности)
+            //     bool is_normalized = std::abs(norm - 1.0) < 1e-5;
+            //     std::cout << "Normalized descriptor check: " << is_normalized << std::endl; 
+            // }
+            // allDescriptors[level] = result.second;
+
             // Add border to coordinates and scale information
             const int nkps = keypoints.size();
             for(int i=0; i<nkps ; i++)
