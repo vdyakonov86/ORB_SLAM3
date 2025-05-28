@@ -189,16 +189,16 @@ if __name__=="__main__":
         mean = "absolute_translational_error.mean %f m"%numpy.mean(trans_error)
         median = "absolute_translational_error.median %f m"%numpy.median(trans_error)
         std = "absolute_translational_error.std %f m"%numpy.std(trans_error)
-        min_err = "absolute_translational_error.min %f m"%numpy.min(trans_error)
-        max_err = "absolute_translational_error.max %f m"%numpy.max(trans_error)
+        min = "absolute_translational_error.min %f m"%numpy.min(trans_error)
+        max = "absolute_translational_error.max %f m"%numpy.max(trans_error)
         max_err_pair_idx = "max error pair idx: %i" %numpy.argmax(trans_error)
         print(pose_pairs)
         print(rmse)
         print(mean)
         print(median)
         print(std)
-        print(min_err)
-        print(max_err)
+        print(min)
+        print(max)
         print(max_err_pair_idx)
 
         with safe_open_w(args.save_dir + '/results.txt', 'w') as f:
@@ -207,8 +207,8 @@ if __name__=="__main__":
             f.write(mean+'\n')
             f.write(median+'\n')
             f.write(std+'\n')
-            f.write(min_err+'\n')
-            f.write(max_err+'\n')
+            f.write(min+'\n')
+            f.write(max+'\n')
             f.write(max_err_pair_idx+'\n')
     else:
         # print("%f, %f " % (numpy.sqrt(numpy.dot(trans_error,trans_error) / len(trans_error)),  scale))
@@ -236,60 +236,21 @@ if __name__=="__main__":
         import matplotlib.pyplot as plt
         import matplotlib.pylab as pylab
         from matplotlib.patches import Ellipse
-        import matplotlib.cm as cm
-
-        # === График 1: Обычная траектория + фильтр ошибок ===
-        fig1 = plt.figure()
-        ax1 = fig1.add_subplot(111)
-
-        plot_traj(ax1, first_stamps, first_xyz_full.transpose().A, '-', "black", "эталонная траектория")
-        plot_traj(ax1, second_stamps, second_xyz_full_aligned.transpose().A, '-', "blue", "оценочная траектория")
-
-        import math
-        MAX_ERROR_LINE_LENGTH = 0  # метров — фильтр длинных красных линий
-        label = "difference"
-        for i, ((a, b), (x1, y1, z1), (x2, y2, z2)) in enumerate(zip(matches, first_xyz.transpose().A, second_xyz_aligned.transpose().A)):
-            dist = math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
-            if dist > MAX_ERROR_LINE_LENGTH:
-                continue
-            ax1.plot([x1, x2], [y1, y2], '-', color="red", label=label)
-            label = ""
-
-        ax1.legend()
-        # ax1.set_title("Trajectory with Error Vectors (Filtered)")
-        ax1.set_title("Графики эталонной траектории и оценочной")
-        ax1.set_xlabel('x [m]')
-        ax1.set_ylabel('y [m]')
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        plot_traj(ax,first_stamps,first_xyz_full.transpose().A,'-',"black","ground truth")
+        plot_traj(ax,second_stamps,second_xyz_full_aligned.transpose().A,'-',"blue","estimated")
+        label="difference"
+        for (a,b),(x1,y1,z1),(x2,y2,z2) in zip(matches,first_xyz.transpose().A,second_xyz_aligned.transpose().A):
+            ax.plot([x1,x2],[y1,y2],'-',color="red",label=label)
+            label=""
+            
+        ax.legend()
+            
+        ax.set_xlabel('x [m]')
+        ax.set_ylabel('y [m]')
         plt.axis('equal')
-        plt.savefig(args.save_dir + '/plot.pdf', format="pdf")
+        plt.savefig(args.save_dir + '/plot.pdf',format="pdf")
 
-        # === График 2: Ошибка по времени ===
-        fig2 = plt.figure()
-        ax2 = fig2.add_subplot(111)
-        time_stamps = [a for a, b in matches]
-        ax2.plot(time_stamps, trans_error, label="translational error", color='red')
-        ax2.set_title("Ошибка перемещения по времени")
-        ax2.set_xlabel("Time [s]")
-        ax2.set_ylabel("Error [m]")
-        ax2.grid(True)
-        ax2.legend()
-        plt.savefig(args.save_dir + "/error_over_time.pdf", format="pdf")
 
-        # === График 3: Цветная траектория по уровню ошибки ===
-        fig3 = plt.figure()
-        ax3 = fig3.add_subplot(111)
-
-        norm = plt.Normalize(vmin=min(trans_error), vmax=max(trans_error))
-        cmap = cm.get_cmap('jet')
-
-        for ((a, b), (x, y, z), err) in zip(matches, second_xyz_aligned.transpose().A, trans_error):
-            color = cmap(norm(err))
-            ax3.plot(x, y, marker='o', color=color, markersize=2)
-
-        ax3.set_title("Estimated Trajectory Colored by Translational Error")
-        ax3.set_xlabel("x [m]")
-        ax3.set_ylabel("y [m]")
-        plt.axis('equal')
-        cbar = fig3.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax3)
-        cbar.set_label("Translational Error [m]")
-        plt.savefig(args.save_dir + "/trajectory_error_colormap.pdf", format="pdf")
+        
