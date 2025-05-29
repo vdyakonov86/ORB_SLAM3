@@ -42,7 +42,7 @@ class LocalMapping
 {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    LocalMapping(System* pSys, Atlas* pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName=std::string());
+    LocalMapping(System* pSys, Atlas* pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName=std::string(), eDescriptorDistMetric descriptorDistMetric = eDescriptorDistMetric::L2);
 
     void SetLoopCloser(LoopClosing* pLoopCloser);
 
@@ -110,6 +110,8 @@ public:
     // not consider far points (clouds)
     bool mbFarPoints;
     float mThFarPoints;
+
+    eDescriptorDistMetric mDescriptorDistMetric;
 
 #ifdef REGISTER_TIMES
     vector<double> vdKFInsert_ms;

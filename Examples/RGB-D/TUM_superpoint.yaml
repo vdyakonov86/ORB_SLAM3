@@ -55,6 +55,7 @@ ORBextractor.nLevels: 1
 ORBextractor.iniThFAST: 20
 ORBextractor.minThFAST: 7
 
+Matcher.descriptorDistanceMetric: "L2"
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters
 #--------------------------------------------------------------------------------------------

@@ -38,8 +38,8 @@ namespace ORB_SLAM3
     const float SuperGlueMatcher::TH_MAX = 2.0f;
     const int SuperGlueMatcher::HISTO_LENGTH = 30;
 
-    SuperGlueMatcher::SuperGlueMatcher( Ort::SuperGlue* model, cv::Size imageSize, float nnratio, bool checkOri)
-    : mfNNratio(nnratio), mbCheckOrientation(checkOri), mModel(model), mImageSize(imageSize)
+    SuperGlueMatcher::SuperGlueMatcher( Ort::SuperGlue* model, cv::Size imageSize, float nnratio, bool checkOri, eDescriptorDistMetric descriptorDistMetric)
+    : mfNNratio(nnratio), mbCheckOrientation(checkOri), mModel(model), mImageSize(imageSize), mDescriptorDistMetric(descriptorDistMetric)
     {
     }
 
@@ -169,7 +169,7 @@ namespace ORB_SLAM3
 
                         const cv::Mat &d = F.mDescriptors.row(idx);
 
-                        const auto dist = DescriptorDistance(MPdescriptor,d);
+                        const auto dist = DescriptorDistance(MPdescriptor,d,mDescriptorDistMetric);
 
                         if(dist<bestDist)
                         {
@@ -349,7 +349,7 @@ namespace ORB_SLAM3
 
                 const cv::Mat &dKF = pKF->mDescriptors.row(idx);
 
-                const float dist = DescriptorDistance(dMP,dKF);
+                const float dist = DescriptorDistance(dMP,dKF,mDescriptorDistMetric);
 
                 if(dist<bestDist)
                 {
@@ -462,7 +462,7 @@ namespace ORB_SLAM3
 
                 const cv::Mat &dKF = pKF->mDescriptors.row(idx);
 
-                const float dist = DescriptorDistance(dMP,dKF);
+                const float dist = DescriptorDistance(dMP,dKF,mDescriptorDistMetric);
 
                 if(dist<bestDist)
                 {
@@ -680,7 +680,7 @@ namespace ORB_SLAM3
 
                         const cv::Mat &d2 = Descriptors2.row(idx2);
 
-                        auto dist = DescriptorDistance(d1,d2);
+                        auto dist = DescriptorDistance(d1,d2,mDescriptorDistMetric);
 
                         if(dist<bestDist1)
                         {
@@ -861,7 +861,7 @@ namespace ORB_SLAM3
 
                         const cv::Mat &d2 = pKF2->mDescriptors.row(idx2);
 
-                        const float dist = DescriptorDistance(d1,d2);
+                        const float dist = DescriptorDistance(d1,d2,mDescriptorDistMetric);
 
                         if(dist>TH_LOW || dist>bestDist)
                             continue;
@@ -1148,7 +1148,7 @@ namespace ORB_SLAM3
 
                 const cv::Mat &dKF = pKF->mDescriptors.row(idx);
 
-                const float dist = DescriptorDistance(dMP,dKF);
+                const float dist = DescriptorDistance(dMP,dKF,mDescriptorDistMetric);
 
                 if(dist<bestDist)
                 {
@@ -1273,7 +1273,7 @@ namespace ORB_SLAM3
 
                 const cv::Mat &dKF = pKF->mDescriptors.row(idx);
 
-                float dist = DescriptorDistance(dMP,dKF);
+                float dist = DescriptorDistance(dMP,dKF,mDescriptorDistMetric);
 
                 if(dist<bestDist)
                 {
@@ -1406,7 +1406,7 @@ namespace ORB_SLAM3
 
                 const cv::Mat &dKF = pKF2->mDescriptors.row(idx);
 
-                const float dist = DescriptorDistance(dMP,dKF);
+                const float dist = DescriptorDistance(dMP,dKF,mDescriptorDistMetric);
 
                 if(dist<bestDist)
                 {
@@ -1486,7 +1486,7 @@ namespace ORB_SLAM3
 
                 const cv::Mat &dKF = pKF1->mDescriptors.row(idx);
 
-                const float dist = DescriptorDistance(dMP,dKF);
+                const float dist = DescriptorDistance(dMP,dKF,mDescriptorDistMetric);
 
                 if(dist<bestDist)
                 {
@@ -1624,9 +1624,27 @@ namespace ORB_SLAM3
     }
 
 
-    float SuperGlueMatcher::DescriptorDistance(const cv::Mat &a, const cv::Mat &b)
-    {
-        return cv::norm(a, b, cv::NORM_L2);
+    float SuperGlueMatcher::DescriptorDistance(const cv::Mat &a, const cv::Mat &b, const eDescriptorDistMetric distMetric)
+    {   
+        if (distMetric == eDescriptorDistMetric::HAMMING) {
+            const int *pa = a.ptr<int32_t>();
+            const int *pb = b.ptr<int32_t>();
+
+            int dist=0;
+
+            for(int i=0; i<8; i++, pa++, pb++)
+            {
+                unsigned  int v = *pa ^ *pb;
+                v = v - ((v >> 1) & 0x55555555);
+                v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
+                dist += (((v + (v >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24;
+            }
+
+            return static_cast<float>(dist);
+        } 
+        else if (distMetric == eDescriptorDistMetric::L2) {
+            return cv::norm(a, b, cv::NORM_L2);
+        }
     }
 
     void SuperGlueMatcher::matchDescriptorsSuperGlue(

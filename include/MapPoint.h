@@ -105,11 +105,11 @@ class MapPoint
 
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    MapPoint();
+    MapPoint(eDescriptorDistMetric descriptorDistMetric = eDescriptorDistMetric::L2);
 
-    MapPoint(const Eigen::Vector3f &Pos, KeyFrame* pRefKF, Map* pMap);
-    MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame* pRefKF, KeyFrame* pHostKF, Map* pMap);
-    MapPoint(const Eigen::Vector3f &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
+    MapPoint(const Eigen::Vector3f &Pos, KeyFrame* pRefKF, Map* pMap, eDescriptorDistMetric descriptorDistMetric = eDescriptorDistMetric::L2);
+    MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame* pRefKF, KeyFrame* pHostKF, Map* pMap, eDescriptorDistMetric descriptorDistMetric = eDescriptorDistMetric::L2);
+    MapPoint(const Eigen::Vector3f &Pos,  Map* pMap, Frame* pFrame, const int &idxF, eDescriptorDistMetric descriptorDistMetric = eDescriptorDistMetric::L2);
 
     void SetWorldPos(const Eigen::Vector3f &Pos);
     Eigen::Vector3f GetWorldPos();
@@ -248,6 +248,8 @@ protected:
      std::mutex mMutexPos;
      std::mutex mMutexFeatures;
      std::mutex mMutexMap;
+
+     const eDescriptorDistMetric mDescriptorDistMetric;
 
 };
 

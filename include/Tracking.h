@@ -64,7 +64,8 @@ class Tracking
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Tracking(System* pSys, ORBVocabulary* pVoc, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Atlas* pAtlas,
-             KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, const int extractorType, Settings* settings, const string &_nameSeq=std::string());
+             KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, const int extractorType, 
+             Settings* settings, const string &_nameSeq=std::string(), eDescriptorDistMetric descriptorDistMetric = eDescriptorDistMetric::L2);
 
     ~Tracking();
 
@@ -141,6 +142,9 @@ public:
 
     // Extractor
     int mExtractorType;
+
+    // Descriptor similarity metric 
+    const eDescriptorDistMetric mDescriptorDistMetric;
 
     // Current Frame
     Frame mCurrentFrame;

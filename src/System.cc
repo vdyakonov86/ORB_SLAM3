@@ -192,15 +192,24 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpFrameDrawer = new FrameDrawer(mpAtlas);
     mpMapDrawer = new MapDrawer(mpAtlas, strSettingsFile, settings_);
 
+    std::string descriptorDistMetric = fsSettings["Matcher.descriptorDistanceMetric"].string();
+    cout << "descriptorDistMetric: " << descriptorDistMetric << endl;
+
+    if (descriptorDistMetric == "L2") {
+        mDescriptorDistMetric = eDescriptorDistMetric::L2;
+    } else if (descriptorDistMetric == "HAMMING") {
+        mDescriptorDistMetric = eDescriptorDistMetric::HAMMING;
+    }
+
     //Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
     cout << "Seq. Name: " << strSequence << endl;
     mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
-                             mpAtlas, mpKeyFrameDatabase, strSettingsFile, mSensor, mExtractorType, settings_, strSequence);
+                             mpAtlas, mpKeyFrameDatabase, strSettingsFile, mSensor, mExtractorType, settings_, strSequence, mDescriptorDistMetric);
 
     //Initialize the Local Mapping thread and launch
     mpLocalMapper = new LocalMapping(this, mpAtlas, mSensor==MONOCULAR || mSensor==IMU_MONOCULAR,
-                                     mSensor==IMU_MONOCULAR || mSensor==IMU_STEREO || mSensor==IMU_RGBD, strSequence);
+                                     mSensor==IMU_MONOCULAR || mSensor==IMU_STEREO || mSensor==IMU_RGBD, strSequence, mDescriptorDistMetric);
     mptLocalMapping = new thread(&ORB_SLAM3::LocalMapping::Run,mpLocalMapper);
     mpLocalMapper->mInitFr = initFr;
     if(settings_)

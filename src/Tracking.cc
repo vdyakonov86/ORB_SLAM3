@@ -43,12 +43,14 @@ namespace ORB_SLAM3
 {
 
 
-Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Atlas *pAtlas, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, const int extractorType, Settings* settings, const string &_nameSeq):
+Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Atlas *pAtlas, 
+                KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, const int extractorType, 
+                Settings* settings, const string &_nameSeq, eDescriptorDistMetric descriptorDistMetric):
     mState(NO_IMAGES_YET), mSensor(sensor), mExtractorType(extractorType), mTrackedFr(0), mbStep(false),
     mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), mpORBVocabulary(pVoc), mpKeyFrameDB(pKFDB),
     mbReadyToInitializate(false), mpSystem(pSys), mpViewer(NULL), bStepByStep(false),
     mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpAtlas(pAtlas), mnLastRelocFrameId(0), time_recently_lost(5.0),
-    mnInitialFrameId(0), mbCreatedMap(false), mnFirstFrameId(0), mpCamera2(nullptr), mpLastKeyFrame(static_cast<KeyFrame*>(NULL))
+    mnInitialFrameId(0), mbCreatedMap(false), mnFirstFrameId(0), mpCamera2(nullptr), mpLastKeyFrame(static_cast<KeyFrame*>(NULL)), mDescriptorDistMetric(descriptorDistMetric)
 {
     // Load camera parameters from settings file
     mImageSize = cv::Size(640, 480); // TODO: INITIALIZE FROM CONFIG
@@ -1500,13 +1502,13 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
     //cout << "Incoming frame creation" << endl;
 
     if (mSensor == System::STEREO && !mpCamera2)
-        mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
+        mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mDescriptorDistMetric);
     else if(mSensor == System::STEREO && mpCamera2)
-        mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mpCamera2,mTlr);
+        mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mpCamera2,mTlr, mDescriptorDistMetric);
     else if(mSensor == System::IMU_STEREO && !mpCamera2)
-        mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,&mLastFrame,*mpImuCalib);
+        mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mDescriptorDistMetric,&mLastFrame,*mpImuCalib);
     else if(mSensor == System::IMU_STEREO && mpCamera2)
-        mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mpCamera2,mTlr,&mLastFrame,*mpImuCalib);
+        mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mpCamera2,mTlr,mDescriptorDistMetric,&mLastFrame,*mpImuCalib);
 
     //cout << "Incoming frame ended" << endl;
 
@@ -1550,13 +1552,13 @@ Sophus::SE3f Tracking::GrabImageRGBD(std::vector<OutputSeg> &seg_result,const cv
         imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
 
     if (mExtractorType == System::SUPERPOINT && mSensor == System::RGBD)
-        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpSuperPointExtractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
+        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpSuperPointExtractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera, mDescriptorDistMetric);
     else if (!seg_result.empty() && mSensor == System::RGBD)
-        mCurrentFrame = Frame(seg_result,mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
+        mCurrentFrame = Frame(seg_result,mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera, mDescriptorDistMetric);
     else if (mSensor == System::RGBD)
-        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
+        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera, mDescriptorDistMetric);
     else if(mSensor == System::IMU_RGBD)
-        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,&mLastFrame,*mpImuCalib);
+        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera, mDescriptorDistMetric, &mLastFrame,*mpImuCalib);
 
 
 
@@ -2397,7 +2399,7 @@ void Tracking::StereoInitialization()
                 {
                     Eigen::Vector3f x3D;
                     mCurrentFrame.UnprojectStereo(i, x3D);
-                    MapPoint* pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap());
+                    MapPoint* pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap(), mDescriptorDistMetric);
                     pNewMP->AddObservation(pKFini,i);
                     pKFini->AddMapPoint(pNewMP,i);
                     pNewMP->ComputeDistinctiveDescriptors();
@@ -2413,7 +2415,7 @@ void Tracking::StereoInitialization()
                 if(rightIndex != -1){
                     Eigen::Vector3f x3D = mCurrentFrame.mvStereo3Dpoints[i];
 
-                    MapPoint* pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap());
+                    MapPoint* pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap(), mDescriptorDistMetric);
 
                     pNewMP->AddObservation(pKFini,i);
                     pNewMP->AddObservation(pKFini,rightIndex + mCurrentFrame.Nleft);
@@ -2562,7 +2564,7 @@ void Tracking::CreateInitialMapMonocular()
         //Create MapPoint.
         Eigen::Vector3f worldPos;
         worldPos << mvIniP3D[i].x, mvIniP3D[i].y, mvIniP3D[i].z;
-        MapPoint* pMP = new MapPoint(worldPos,pKFcur,mpAtlas->GetCurrentMap());
+        MapPoint* pMP = new MapPoint(worldPos,pKFcur,mpAtlas->GetCurrentMap(), mDescriptorDistMetric);
 
         pKFini->AddMapPoint(pMP,i);
         pKFcur->AddMapPoint(pMP,mvIniMatches[i]);
@@ -2738,9 +2740,9 @@ bool Tracking::TrackReferenceKeyFrame()
 
     // We perform first an ORB matching with the reference keyframe
     // If enough matches are found we setup a PnP solver
-    // ORBmatcher matcher(0.7,true);
-    // SuperPointMatcher matcher(0.7,true);
-    SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.7, true);
+    // ORBmatcher matcher(0.7,true, mDescriptorDistMetric);
+    // SuperPointMatcher matcher(0.7,true, mDescriptorDistMetric);
+    SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.7, true, mDescriptorDistMetric);
     vector<MapPoint*> vpMapPointMatches;
 
     int nmatches = matcher.SearchByBoW(mpReferenceKF,mCurrentFrame,vpMapPointMatches);
@@ -2851,7 +2853,7 @@ void Tracking::UpdateLastFrame()
                 x3D = mLastFrame.UnprojectStereoFishEye(i);
             }
 
-            MapPoint* pNewMP = new MapPoint(x3D,mpAtlas->GetCurrentMap(),&mLastFrame,i);
+            MapPoint* pNewMP = new MapPoint(x3D,mpAtlas->GetCurrentMap(),&mLastFrame,i, mDescriptorDistMetric);
             mLastFrame.mvpMapPoints[i]=pNewMP;
 
             mlpTemporalPoints.push_back(pNewMP);
@@ -2870,9 +2872,9 @@ void Tracking::UpdateLastFrame()
 
 bool Tracking::TrackWithMotionModel()
 {
-    // ORBmatcher matcher(0.9,true);
-    // SuperPointMatcher matcher(0.9,true);
-    SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.9, true);
+    // ORBmatcher matcher(0.9,true, mDescriptorDistMetric);
+    // SuperPointMatcher matcher(0.9,true, mDescriptorDistMetric);
+    SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.9, true, mDescriptorDistMetric);
 
     // Update last frame pose according to its reference keyframe
     // Create "visual odometry" points if in Localization Mode
@@ -3317,7 +3319,7 @@ void Tracking::CreateNewKeyFrame()
                         x3D = mCurrentFrame.UnprojectStereoFishEye(i);
                     }
 
-                    MapPoint* pNewMP = new MapPoint(x3D,pKF,mpAtlas->GetCurrentMap());
+                    MapPoint* pNewMP = new MapPoint(x3D,pKF,mpAtlas->GetCurrentMap(), mDescriptorDistMetric);
                     pNewMP->AddObservation(pKF,i);
 
                     //Check if it is a stereo observation in order to not
@@ -3406,9 +3408,9 @@ void Tracking::SearchLocalPoints()
 
     if(nToMatch>0)
     {
-        // ORBmatcher matcher(0.8);
-        // SuperPointMatcher matcher(0.8);
-        SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.8, true);
+        // ORBmatcher matcher(0.8, mDescriptorDistMetric);
+        // SuperPointMatcher matcher(0.8, mDescriptorDistMetric);
+        SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.8, true, mDescriptorDistMetric);
 
         int th = 1;
         if(mSensor==System::RGBD || mSensor==System::IMU_RGBD)
@@ -3648,9 +3650,9 @@ bool Tracking::Relocalization()
 
     // We perform first an ORB matching with each candidate
     // If enough matches are found we setup a PnP solver
-    // ORBmatcher matcher(0.75,true);
-    // SuperPointMatcher matcher(0.75,true);
-    SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.75, true);
+    // ORBmatcher matcher(0.75,true, mDescriptorDistMetric);
+    // SuperPointMatcher matcher(0.75,true, mDescriptorDistMetric);
+    SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.75, true, mDescriptorDistMetric);
 
     vector<MLPnPsolver*> vpMLPnPsolvers;
     vpMLPnPsolvers.resize(nKFs);
@@ -3690,9 +3692,9 @@ bool Tracking::Relocalization()
     // Alternatively perform some iterations of P4P RANSAC
     // Until we found a camera pose supported by enough inliers
     bool bMatch = false;
-    // ORBmatcher matcher2(0.9,true);
-    // SuperPointMatcher matcher2(0.9,true);
-    SuperGlueMatcher matcher2(mSuperGlueModel, mImageSize, 0.9, true);
+    // ORBmatcher matcher2(0.9,true, mDescriptorDistMetric);
+    // SuperPointMatcher matcher2(0.9,true, mDescriptorDistMetric);
+    SuperGlueMatcher matcher2(mSuperGlueModel, mImageSize, 0.9, true, mDescriptorDistMetric);
 
     while(nCandidates>0 && !bMatch)
     {

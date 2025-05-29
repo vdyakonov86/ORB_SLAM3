@@ -61,8 +61,14 @@ int main(int argc, char **argv)
     }
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    auto backbone = argv[6];
-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::RGBD,ORB_SLAM3::System::SUPERPOINT,true);
+    std::string backbone = argv[6];
+    auto backbone_type = ORB_SLAM3::System::ORB;
+
+    if (backbone == "SUPERPOINT")
+        backbone_type =  ORB_SLAM3::System::SUPERPOINT;
+    std::cout << "backbone_type: " << backbone_type << std::endl;
+
+    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::RGBD,backbone_type,true);
 
     float imageScale = SLAM.GetImageScale();
 

@@ -39,10 +39,10 @@ namespace ORB_SLAM3
     {
     public:
 
-        SuperGlueMatcher(Ort::SuperGlue* model, cv::Size imageSize, float nnratio=0.6, bool checkOri=true);
+        SuperGlueMatcher(Ort::SuperGlue* model, cv::Size imageSize, float nnratio=0.6, bool checkOri=true, eDescriptorDistMetric descriptorDistMetric = eDescriptorDistMetric::L2);
 
         // Computes the Hamming distance between two ORB descriptors
-        static float DescriptorDistance(const cv::Mat &a, const cv::Mat &b);
+        static float DescriptorDistance(const cv::Mat &a, const cv::Mat &b, const eDescriptorDistMetric distMetric = eDescriptorDistMetric::L2);
 
         // Search matches between Frame keypoints and projected MapPoints. Returns number of matches
         // Used to track the local map (Tracking)
@@ -112,6 +112,7 @@ namespace ORB_SLAM3
 
         float mfNNratio;
         bool mbCheckOrientation;
+        const eDescriptorDistMetric mDescriptorDistMetric;
 
         Ort::SuperGlue* mModel;
 

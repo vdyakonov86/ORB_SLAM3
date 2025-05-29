@@ -272,6 +272,8 @@ private:
     string mStrVocabularyFilePath;
 
     Settings* settings_;
+
+    eDescriptorDistMetric mDescriptorDistMetric;
 };
 
 }// namespace ORB_SLAM
