@@ -37,6 +37,7 @@
 #include "System.h"
 #include "ImuTypes.h"
 #include "Settings.h"
+#include "BaseMatcher.h"
 
 #include "GeometricCamera.h"
 
@@ -65,7 +66,8 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Tracking(System* pSys, ORBVocabulary* pVoc, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Atlas* pAtlas,
              KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, const int extractorType, 
-             Settings* settings, const string &_nameSeq=std::string(), eDescriptorDistMetric descriptorDistMetric = eDescriptorDistMetric::L2);
+             Settings* settings, const string &_nameSeq=std::string(), 
+             eDescriptorDistMetric descriptorDistMetric = eDescriptorDistMetric::HAMMING, eMatcherType matcherType = eMatcherType::ORB);
 
     ~Tracking();
 
@@ -375,6 +377,8 @@ protected:
     cv::Size mImageSize;
 
     Ort::SuperGlue* mSuperGlueModel;
+
+    eMatcherType mMatcherType;
 
     void newParameterLoader(Settings* settings);
 

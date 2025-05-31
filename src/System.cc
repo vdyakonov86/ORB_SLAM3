@@ -38,9 +38,10 @@ namespace ORB_SLAM3
 
 Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
 
-System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const eExtractorType extractorType,
+System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, 
+               const eExtractorType extractorType, const eMatcherType matcherType,
                const bool bUseViewer, const int initFr, const string &strSequence):
-    mSensor(sensor), mExtractorType(extractorType), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false), mbResetActiveMap(false),
+    mSensor(sensor), mExtractorType(extractorType), mMatcherType(matcherType), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false), mbResetActiveMap(false),
     mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false), mbShutDown(false)
 {
     // Output welcome message
@@ -205,7 +206,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     //(it will live in the main thread of execution, the one that called this constructor)
     cout << "Seq. Name: " << strSequence << endl;
     mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
-                             mpAtlas, mpKeyFrameDatabase, strSettingsFile, mSensor, mExtractorType, settings_, strSequence, mDescriptorDistMetric);
+                             mpAtlas, mpKeyFrameDatabase, strSettingsFile, mSensor, mExtractorType, settings_, strSequence, mDescriptorDistMetric, mMatcherType);
 
     //Initialize the Local Mapping thread and launch
     mpLocalMapper = new LocalMapping(this, mpAtlas, mSensor==MONOCULAR || mSensor==IMU_MONOCULAR,

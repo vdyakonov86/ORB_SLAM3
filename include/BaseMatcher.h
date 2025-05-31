@@ -14,17 +14,23 @@
 
 namespace ORB_SLAM3
 {
-
-enum class eMatcherType {
-    ORB,
-    SuperPoint,
-    SuperGlue
-};
-
 // Forward declarations (предварительные объявления классов)
 class ORBmatcher;
 class SuperPointMatcher;
 class SuperGlueMatcher;
+
+enum class eMatcherType {
+    ORB,
+    SUPERPOINT,
+    SUPERGLUE
+};
+
+inline eMatcherType stringToMatcherType(const std::string& str) {
+    if (str == "ORB") return eMatcherType::ORB;
+    if (str == "SUPERPOINT") return eMatcherType::SUPERPOINT;
+    if (str == "SUPERGLUE") return eMatcherType::SUPERGLUE;
+    throw std::invalid_argument("Unknown matcher type: " + str);
+}
 
 class BaseMatcher {
 public:

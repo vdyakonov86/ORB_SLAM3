@@ -34,9 +34,9 @@ void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageF
 
 int main(int argc, char **argv)
 {
-    if(argc != 7)
+    if(argc != 8)
     {
-        cerr << endl << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings path_to_sequence path_to_association backbone out_dir_name" << endl;
+        cerr << endl << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings path_to_sequence path_to_association extractor matcher out_dir_name" << endl;
         return 1;
     }
 
@@ -61,14 +61,10 @@ int main(int argc, char **argv)
     }
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    std::string backbone = argv[6];
-    auto backbone_type = ORB_SLAM3::System::ORB;
+    auto extractor = ORB_SLAM3::stringToExtractorType(argv[6]);
+    auto matcher = ORB_SLAM3::stringToMatcherType(argv[7]);
 
-    if (backbone == "SUPERPOINT")
-        backbone_type =  ORB_SLAM3::System::SUPERPOINT;
-    std::cout << "backbone_type: " << backbone_type << std::endl;
-
-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::RGBD,backbone_type,true);
+    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::RGBD,extractor,matcher,true);
 
     float imageScale = SLAM.GetImageScale();
 

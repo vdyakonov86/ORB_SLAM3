@@ -39,11 +39,24 @@
 #include "Viewer.h"
 #include "ImuTypes.h"
 #include "Settings.h"
+#include "BaseMatcher.h"
 
 #include <yolo-inference/yolo.h>
 
 namespace ORB_SLAM3
 {
+
+enum eExtractorType {
+    ORB=0,
+    SUPERPOINT=1,
+};
+
+inline eExtractorType stringToExtractorType(const std::string& str) {
+    if (str == "ORB") return eExtractorType::ORB;
+    if (str == "SUPERPOINT") return eExtractorType::SUPERPOINT;
+    throw std::invalid_argument("Unknown extractor type: " + str);
+}
+
 
 class Verbose
 {
@@ -100,16 +113,10 @@ public:
         BINARY_FILE=1,
     };
 
-    // Extractor type
-    enum eExtractorType {
-        ORB=0,
-        SUPERPOINT=1,
-    };
-
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     // Initialize the SLAM system. It launches the Local Mapping, Loop Closing and Viewer threads.
-    System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const eExtractorType extractorType, const bool bUseViewer = true, const int initFr = 0, const string &strSequence = std::string());
+    System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const eExtractorType extractorType, const eMatcherType matcherType, const bool bUseViewer = true, const int initFr = 0, const string &strSequence = std::string());
 
     // Proccess the given stereo frame. Images must be synchronized and rectified.
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
@@ -274,6 +281,7 @@ private:
     Settings* settings_;
 
     eDescriptorDistMetric mDescriptorDistMetric;
+    eMatcherType mMatcherType;
 };
 
 }// namespace ORB_SLAM

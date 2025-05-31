@@ -15,9 +15,9 @@ ORB_SLAM3::BaseMatcher::create_matcher(
     switch(type) {
         case eMatcherType::ORB:
             return std::make_unique<ORBmatcher>(nn_ratio, check_orientation, dist_metric);
-        case eMatcherType::SuperPoint:
+        case eMatcherType::SUPERPOINT:
             return std::make_unique<SuperPointMatcher>(nn_ratio, check_orientation, dist_metric);
-        case eMatcherType::SuperGlue:
+        case eMatcherType::SUPERGLUE:
             return std::make_unique<SuperGlueMatcher>(
                 static_cast<Ort::SuperGlue*>(model),  // Каст обратно
                 image_size, 

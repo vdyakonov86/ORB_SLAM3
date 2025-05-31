@@ -19,9 +19,6 @@
 
 #include "Tracking.h"
 
-#include "ORBmatcher.h"
-#include "SuperPointMatcher.h"
-#include "SuperGlueMatcher.h"
 #include "FrameDrawer.h"
 #include "Converter.h"
 #include "G2oTypes.h"
@@ -45,12 +42,13 @@ namespace ORB_SLAM3
 
 Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Atlas *pAtlas, 
                 KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, const int extractorType, 
-                Settings* settings, const string &_nameSeq, eDescriptorDistMetric descriptorDistMetric):
+                Settings* settings, const string &_nameSeq, eDescriptorDistMetric descriptorDistMetric, eMatcherType matcherType):
     mState(NO_IMAGES_YET), mSensor(sensor), mExtractorType(extractorType), mTrackedFr(0), mbStep(false),
     mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), mpORBVocabulary(pVoc), mpKeyFrameDB(pKFDB),
     mbReadyToInitializate(false), mpSystem(pSys), mpViewer(NULL), bStepByStep(false),
     mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpAtlas(pAtlas), mnLastRelocFrameId(0), time_recently_lost(5.0),
-    mnInitialFrameId(0), mbCreatedMap(false), mnFirstFrameId(0), mpCamera2(nullptr), mpLastKeyFrame(static_cast<KeyFrame*>(NULL)), mDescriptorDistMetric(descriptorDistMetric)
+    mnInitialFrameId(0), mbCreatedMap(false), mnFirstFrameId(0), mpCamera2(nullptr), mpLastKeyFrame(static_cast<KeyFrame*>(NULL)), 
+    mDescriptorDistMetric(descriptorDistMetric), mMatcherType(matcherType)
 {
     // Load camera parameters from settings file
     mImageSize = cv::Size(640, 480); // TODO: INITIALIZE FROM CONFIG
@@ -1551,7 +1549,7 @@ Sophus::SE3f Tracking::GrabImageRGBD(std::vector<OutputSeg> &seg_result,const cv
     if((fabs(mDepthMapFactor-1.0f)>1e-5) || imDepth.type()!=CV_32F)
         imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
 
-    if (mExtractorType == System::SUPERPOINT && mSensor == System::RGBD)
+    if (mExtractorType == eExtractorType::SUPERPOINT && mSensor == System::RGBD)
         mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpSuperPointExtractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera, mDescriptorDistMetric);
     else if (!seg_result.empty() && mSensor == System::RGBD)
         mCurrentFrame = Frame(seg_result,mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera, mDescriptorDistMetric);
@@ -2503,8 +2501,8 @@ void Tracking::MonocularInitialization()
         }
 
         // Find correspondences
-        ORBmatcher matcher(0.9,true);
-        int nmatches = matcher.SearchForInitialization(mInitialFrame,mCurrentFrame,mvbPrevMatched,mvIniMatches,100);
+        auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.9, true, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
+        int nmatches = matcher->SearchForInitialization(mInitialFrame,mCurrentFrame,mvbPrevMatched,mvIniMatches,100);
         cout << "SearchForInitialization nmatches: " << nmatches << endl;
 
         // Check if there are enough correspondences
@@ -2740,12 +2738,10 @@ bool Tracking::TrackReferenceKeyFrame()
 
     // We perform first an ORB matching with the reference keyframe
     // If enough matches are found we setup a PnP solver
-    // ORBmatcher matcher(0.7,true, mDescriptorDistMetric);
-    // SuperPointMatcher matcher(0.7,true, mDescriptorDistMetric);
-    SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.7, true, mDescriptorDistMetric);
+    auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.7, true, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
     vector<MapPoint*> vpMapPointMatches;
 
-    int nmatches = matcher.SearchByBoW(mpReferenceKF,mCurrentFrame,vpMapPointMatches);
+    int nmatches = matcher->SearchByBoW(mpReferenceKF,mCurrentFrame,vpMapPointMatches);
     cout << "TrackReferenceKeyFrame SearchByBoW nmatches: " << nmatches << endl;
 
     if(nmatches<15)
@@ -2872,9 +2868,7 @@ void Tracking::UpdateLastFrame()
 
 bool Tracking::TrackWithMotionModel()
 {
-    // ORBmatcher matcher(0.9,true, mDescriptorDistMetric);
-    // SuperPointMatcher matcher(0.9,true, mDescriptorDistMetric);
-    SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.9, true, mDescriptorDistMetric);
+    auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.9, true, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
 
     // Update last frame pose according to its reference keyframe
     // Create "visual odometry" points if in Localization Mode
@@ -2904,7 +2898,7 @@ bool Tracking::TrackWithMotionModel()
     else
         th=15;
 
-    int nmatches = matcher.SearchByProjection(mCurrentFrame,mLastFrame,th,mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR);
+    int nmatches = matcher->SearchByProjection(mCurrentFrame,mLastFrame,th,mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR);
     cout << "TrackWithMotionModel SearchByProjection nmatches: " << nmatches << endl;
     // If few matches, uses a wider window search
     if(nmatches<20)
@@ -2912,7 +2906,7 @@ bool Tracking::TrackWithMotionModel()
         Verbose::PrintMess("Not enough matches, wider window search!!", Verbose::VERBOSITY_NORMAL);
         fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
 
-        nmatches = matcher.SearchByProjection(mCurrentFrame,mLastFrame,2*th,mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR);
+        nmatches = matcher->SearchByProjection(mCurrentFrame,mLastFrame,2*th,mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR);
         Verbose::PrintMess("Matches with wider search: " + to_string(nmatches), Verbose::VERBOSITY_NORMAL);
 
     }
@@ -3408,9 +3402,7 @@ void Tracking::SearchLocalPoints()
 
     if(nToMatch>0)
     {
-        // ORBmatcher matcher(0.8, mDescriptorDistMetric);
-        // SuperPointMatcher matcher(0.8, mDescriptorDistMetric);
-        SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.8, true, mDescriptorDistMetric);
+        auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.8, true, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
 
         int th = 1;
         if(mSensor==System::RGBD || mSensor==System::IMU_RGBD)
@@ -3434,7 +3426,7 @@ void Tracking::SearchLocalPoints()
         if(mState==LOST || mState==RECENTLY_LOST) // Lost for less than 1 second
             th=15; // 15
 
-        int matches = matcher.SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
+        int matches = matcher->SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
         std::cout << "SearchLocalPoints SearchByProjection matches: " << matches << std::endl; 
     }
 }
@@ -3650,9 +3642,7 @@ bool Tracking::Relocalization()
 
     // We perform first an ORB matching with each candidate
     // If enough matches are found we setup a PnP solver
-    // ORBmatcher matcher(0.75,true, mDescriptorDistMetric);
-    // SuperPointMatcher matcher(0.75,true, mDescriptorDistMetric);
-    SuperGlueMatcher matcher(mSuperGlueModel, mImageSize, 0.75, true, mDescriptorDistMetric);
+    auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.75, true, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
 
     vector<MLPnPsolver*> vpMLPnPsolvers;
     vpMLPnPsolvers.resize(nKFs);
@@ -3672,7 +3662,7 @@ bool Tracking::Relocalization()
             vbDiscarded[i] = true;
         else
         {
-            int nmatches = matcher.SearchByBoW(pKF,mCurrentFrame,vvpMapPointMatches[i]);
+            int nmatches = matcher->SearchByBoW(pKF,mCurrentFrame,vvpMapPointMatches[i]);
             cout << "Relocalization SearchByBoW nmatches: " << nmatches << endl;
             if(nmatches<15)
             {
@@ -3692,9 +3682,7 @@ bool Tracking::Relocalization()
     // Alternatively perform some iterations of P4P RANSAC
     // Until we found a camera pose supported by enough inliers
     bool bMatch = false;
-    // ORBmatcher matcher2(0.9,true, mDescriptorDistMetric);
-    // SuperPointMatcher matcher2(0.9,true, mDescriptorDistMetric);
-    SuperGlueMatcher matcher2(mSuperGlueModel, mImageSize, 0.9, true, mDescriptorDistMetric);
+    auto matcher2 = BaseMatcher::create_matcher(mMatcherType, 0.9, true, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
 
     while(nCandidates>0 && !bMatch)
     {
@@ -3753,7 +3741,7 @@ bool Tracking::Relocalization()
                 // If few inliers, search by projection in a coarse window and optimize again
                 if(nGood<50)
                 {
-                    int nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,10,100);
+                    int nadditional =matcher2->SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,10,100);
                     cout << "Relocalization SearchByBoW nadditional 10,100: " << nadditional << endl;
 
                     if(nadditional+nGood>=50)
@@ -3768,7 +3756,7 @@ bool Tracking::Relocalization()
                             for(int ip =0; ip<mCurrentFrame.N; ip++)
                                 if(mCurrentFrame.mvpMapPoints[ip])
                                     sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
-                            nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,3,64);
+                            nadditional =matcher2->SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,3,64);
                             cout << "Relocalization SearchByBoW nadditional 3,64: " << nadditional << endl;
 
                             // Final optimization
