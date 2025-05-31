@@ -194,14 +194,6 @@ namespace ORB_SLAM3
         return nmatches;
     }
 
-    float SuperPointMatcher::RadiusByViewingCos(const float &viewCos)
-    {
-        if(viewCos>0.998)
-            return 2.5;
-        else
-            return 4.0;
-    }
-
     int SuperPointMatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPointMatches)
     {
         const vector<MapPoint*> vpMapPointsKF = pKF->GetMapPointMatches();
@@ -1554,49 +1546,6 @@ namespace ORB_SLAM3
         }
 
         return nmatches;
-    }
-
-    void SuperPointMatcher::ComputeThreeMaxima(vector<int>* histo, const int L, int &ind1, int &ind2, int &ind3)
-    {
-        int max1=0;
-        int max2=0;
-        int max3=0;
-
-        for(int i=0; i<L; i++)
-        {
-            const int s = histo[i].size();
-            if(s>max1)
-            {
-                max3=max2;
-                max2=max1;
-                max1=s;
-                ind3=ind2;
-                ind2=ind1;
-                ind1=i;
-            }
-            else if(s>max2)
-            {
-                max3=max2;
-                max2=s;
-                ind3=ind2;
-                ind2=i;
-            }
-            else if(s>max3)
-            {
-                max3=s;
-                ind3=i;
-            }
-        }
-
-        if(max2<0.1f*(float)max1)
-        {
-            ind2=-1;
-            ind3=-1;
-        }
-        else if(max3<0.1f*(float)max1)
-        {
-            ind3=-1;
-        }
     }
 
     void SuperPointMatcher::matchDescriptorsBF(

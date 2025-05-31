@@ -88,6 +88,7 @@ src/GeometricTools.cc
 src/TwoViewReconstruction.cc
 src/Config.cc
 src/Settings.cc
+src/BaseMatcher.cc
 include/System.h
 include/Tracking.h
 include/LocalMapping.h
