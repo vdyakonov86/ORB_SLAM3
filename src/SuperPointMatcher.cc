@@ -1,22 +1,3 @@
-/**
-* This file is part of ORB-SLAM3
-*
-* Copyright (C) 2017-2021 Carlos Campos, Richard Elvira, Juan J. Gómez Rodríguez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.
-* Copyright (C) 2014-2016 Raúl Mur-Artal, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.
-*
-* ORB-SLAM3 is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
-* License as published by the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* ORB-SLAM3 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
-* the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License along with ORB-SLAM3.
-* If not, see <http://www.gnu.org/licenses/>.
-*/
-
-
 #include "SuperPointMatcher.h"
 
 #include<limits.h>
@@ -31,8 +12,6 @@ using namespace std;
 
 namespace ORB_SLAM3
 {
-    // const int SuperPointMatcher::TH_HIGH = 100;
-    // const int SuperPointMatcher::TH_LOW = 50;
     const float SuperPointMatcher::TH_HIGH = 1.2f;
     const float SuperPointMatcher::TH_LOW = 0.6f;
     const float SuperPointMatcher::TH_MAX = 2.0f;
@@ -1617,30 +1596,6 @@ namespace ORB_SLAM3
         else if(max3<0.1f*(float)max1)
         {
             ind3=-1;
-        }
-    }
-
-
-    float SuperPointMatcher::DescriptorDistance(const cv::Mat &a, const cv::Mat &b, const eDescriptorDistMetric distMetric)
-    {   
-        if (distMetric == eDescriptorDistMetric::HAMMING) {
-            const int *pa = a.ptr<int32_t>();
-            const int *pb = b.ptr<int32_t>();
-
-            int dist=0;
-
-            for(int i=0; i<8; i++, pa++, pb++)
-            {
-                unsigned  int v = *pa ^ *pb;
-                v = v - ((v >> 1) & 0x55555555);
-                v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
-                dist += (((v + (v >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24;
-            }
-
-            return static_cast<float>(dist);
-        } 
-        else if (distMetric == eDescriptorDistMetric::L2) {
-            return cv::norm(a, b, cv::NORM_L2);
         }
     }
 

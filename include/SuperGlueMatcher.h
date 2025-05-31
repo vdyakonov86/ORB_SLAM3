@@ -28,6 +28,7 @@
 #include"MapPoint.h"
 #include"KeyFrame.h"
 #include"Frame.h"
+#include"BaseMatcher.h"
 
 #include <ort_utility/ort_utility.hpp>
 #include <ort-superglue/SuperGlue.hpp>
@@ -35,14 +36,11 @@
 namespace ORB_SLAM3
 {
 
-    class SuperGlueMatcher
+    class SuperGlueMatcher: public BaseMatcher
     {
     public:
 
         SuperGlueMatcher(Ort::SuperGlue* model, cv::Size imageSize, float nnratio=0.6, bool checkOri=true, eDescriptorDistMetric descriptorDistMetric = eDescriptorDistMetric::L2);
-
-        // Computes the Hamming distance between two ORB descriptors
-        static float DescriptorDistance(const cv::Mat &a, const cv::Mat &b, const eDescriptorDistMetric distMetric = eDescriptorDistMetric::L2);
 
         // Search matches between Frame keypoints and projected MapPoints. Returns number of matches
         // Used to track the local map (Tracking)

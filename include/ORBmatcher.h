@@ -29,18 +29,16 @@
 #include"KeyFrame.h"
 #include"Frame.h"
 
+#include"BaseMatcher.h"
 
 namespace ORB_SLAM3
 {
 
-    class ORBmatcher
+    class ORBmatcher: public BaseMatcher
     {
     public:
 
         ORBmatcher(float nnratio=0.6, bool checkOri=true, eDescriptorDistMetric descriptorDistMetric = eDescriptorDistMetric::L2);
-
-        // Computes the Hamming distance between two ORB descriptors
-        static float DescriptorDistance(const cv::Mat &a, const cv::Mat &b, const eDescriptorDistMetric distMetric = eDescriptorDistMetric::L2);
 
         // Search matches between Frame keypoints and projected MapPoints. Returns number of matches
         // Used to track the local map (Tracking)
