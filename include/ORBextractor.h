@@ -23,11 +23,12 @@
 #include <list>
 #include <opencv2/opencv.hpp>
 #include <ExtractorNode.h>
+#include "BaseExtractor.h"
 
 namespace ORB_SLAM3
 {
 
-class ORBextractor
+class ORBextractor: public BaseExtractor
 {
 public:
     
@@ -35,8 +36,6 @@ public:
 
     ORBextractor(int nfeatures, float scaleFactor, int nlevels,
                  int iniThFAST, int minThFAST);
-
-    ~ORBextractor(){}
 
     // Compute the ORB features and descriptors on an image.
     // ORB are dispersed on the image using an octree.

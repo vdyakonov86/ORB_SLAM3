@@ -93,6 +93,7 @@ include/System.h
 include/Tracking.h
 include/LocalMapping.h
 include/LoopClosing.h
+include/BaseExtractor.h
 include/ORBextractor.h
 include/SuperPointExtractor.h
 include/ORBmatcher.h
