@@ -22,8 +22,12 @@
 
 #include<vector>
 
-#include "Thirdparty/DBoW2/DBoW2/BowVector.h"
-#include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
+// #include "Thirdparty/DBoW2/DBoW2/BowVector.h"
+// #include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
+
+#include "Thirdparty/DBoW3/DBoW3/DBoW3.h"
+#include "Thirdparty/DBoW3/DBoW3/Vocabulary.h"
+#include "Thirdparty/DBoW3/DBoW3/BowVector.h"
 
 #include "Thirdparty/Sophus/sophus/geometry.hpp"
 
@@ -41,6 +45,7 @@
 
 #include <yolo-inference/yolo.h>
 
+using namespace std;
 namespace ORB_SLAM3
 {
 #define FRAME_GRID_ROWS 48
@@ -255,8 +260,13 @@ public:
     std::vector<float> mvDepth;
 
     // Bag of Words Vector structures.
-    DBoW2::BowVector mBowVec;
-    DBoW2::FeatureVector mFeatVec;
+    // DBoW2::BowVector mBowVec;
+    // DBoW2::FeatureVector mFeatVec;
+    DBoW3::BowVector mBowVec;
+    DBoW3::FeatureVector mFeatVec;
+
+    DBoW3::BowVector mBow3Vec;
+    DBoW3::FeatureVector mFeat3Vec;
 
     // ORB descriptor, each row associated to a keypoint.
     cv::Mat mDescriptors, mDescriptorsRight;

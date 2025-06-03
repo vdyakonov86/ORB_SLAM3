@@ -26,7 +26,10 @@
 #include "KeyFrame.h"
 #include "ORBmatcher.h"
 
-#include "Thirdparty/DBoW2/DUtils/Random.h"
+// #include "Thirdparty/DBoW2/DUtils/Random.h"
+#include "Thirdparty/DBoW3/DUtils/Random.h"
+
+using namespace std;
 
 namespace ORB_SLAM3
 {

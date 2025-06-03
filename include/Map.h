@@ -29,6 +29,7 @@
 
 #include <boost/serialization/base_object.hpp>
 
+using namespace std;
 
 namespace ORB_SLAM3
 {

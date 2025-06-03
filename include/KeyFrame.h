@@ -23,6 +23,11 @@
 #include "MapPoint.h"
 #include "Thirdparty/DBoW2/DBoW2/BowVector.h"
 #include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
+
+#include "Thirdparty/DBoW3/DBoW3/DBoW3.h"
+#include "Thirdparty/DBoW3/DBoW3/BowVector.h"
+#include "Thirdparty/DBoW3/DBoW3/FeatureVector.h"
+
 #include "ORBVocabulary.h"
 #include "ORBextractor.h"
 #include "Frame.h"
@@ -38,6 +43,7 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/map.hpp>
 
+using namespace std;
 
 namespace ORB_SLAM3
 {
@@ -385,8 +391,14 @@ public:
     const cv::Mat mDescriptors;
 
     //BoW
-    DBoW2::BowVector mBowVec;
-    DBoW2::FeatureVector mFeatVec;
+    // DBoW2::BowVector mBowVec;
+    // DBoW2::FeatureVector mFeatVec;
+
+    DBoW3::BowVector mBowVec;
+    DBoW3::FeatureVector mFeatVec;
+
+    DBoW3::BowVector mBow3Vec;
+    DBoW3::FeatureVector mFeat3Vec;
 
     // Pose relative to parent (this is computed when bad flag is activated)
     Sophus::SE3f mTcp;

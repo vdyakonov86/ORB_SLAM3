@@ -23,8 +23,8 @@
 
 #include<opencv2/core/core.hpp>
 
-#include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
-
+// #include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
+#include "Thirdparty/DBoW3/DBoW3/FeatureVector.h"
 #include<stdint-gcc.h>
 
 using namespace std;
@@ -218,7 +218,8 @@ namespace ORB_SLAM3
 
         vpMapPointMatches = vector<MapPoint*>(F.N,static_cast<MapPoint*>(NULL));
 
-        const DBoW2::FeatureVector &vFeatVecKF = pKF->mFeatVec;
+        // const DBoW2::FeatureVector &vFeatVecKF = pKF->mFeatVec;
+        const DBoW3::FeatureVector &vFeatVecKF = pKF->mFeatVec;
 
         int nmatches=0;
 
@@ -228,10 +229,14 @@ namespace ORB_SLAM3
         const float factor = 1.0f/HISTO_LENGTH;
 
         // We perform the matching over ORB that belong to the same vocabulary node (at a certain level)
-        DBoW2::FeatureVector::const_iterator KFit = vFeatVecKF.begin();
-        DBoW2::FeatureVector::const_iterator Fit = F.mFeatVec.begin();
-        DBoW2::FeatureVector::const_iterator KFend = vFeatVecKF.end();
-        DBoW2::FeatureVector::const_iterator Fend = F.mFeatVec.end();
+        // DBoW2::FeatureVector::const_iterator KFit = vFeatVecKF.begin();
+        // DBoW2::FeatureVector::const_iterator Fit = F.mFeatVec.begin();
+        // DBoW2::FeatureVector::const_iterator KFend = vFeatVecKF.end();
+        // DBoW2::FeatureVector::const_iterator Fend = F.mFeatVec.end();
+        DBoW3::FeatureVector::const_iterator KFit = vFeatVecKF.begin();
+        DBoW3::FeatureVector::const_iterator Fit = F.mFeatVec.begin();
+        DBoW3::FeatureVector::const_iterator KFend = vFeatVecKF.end();
+        DBoW3::FeatureVector::const_iterator Fend = F.mFeatVec.end();
 
         while(KFit != KFend && Fit != Fend)
         {
@@ -757,12 +762,14 @@ namespace ORB_SLAM3
     int ORBmatcher::SearchByBoW(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &vpMatches12)
     {
         const vector<cv::KeyPoint> &vKeysUn1 = pKF1->mvKeysUn;
-        const DBoW2::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
+        // const DBoW2::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
+        const DBoW3::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
         const vector<MapPoint*> vpMapPoints1 = pKF1->GetMapPointMatches();
         const cv::Mat &Descriptors1 = pKF1->mDescriptors;
 
         const vector<cv::KeyPoint> &vKeysUn2 = pKF2->mvKeysUn;
-        const DBoW2::FeatureVector &vFeatVec2 = pKF2->mFeatVec;
+        // const DBoW2::FeatureVector &vFeatVec2 = pKF2->mFeatVec;
+        const DBoW3::FeatureVector &vFeatVec2 = pKF2->mFeatVec;
         const vector<MapPoint*> vpMapPoints2 = pKF2->GetMapPointMatches();
         const cv::Mat &Descriptors2 = pKF2->mDescriptors;
 
@@ -777,10 +784,14 @@ namespace ORB_SLAM3
 
         int nmatches = 0;
 
-        DBoW2::FeatureVector::const_iterator f1it = vFeatVec1.begin();
-        DBoW2::FeatureVector::const_iterator f2it = vFeatVec2.begin();
-        DBoW2::FeatureVector::const_iterator f1end = vFeatVec1.end();
-        DBoW2::FeatureVector::const_iterator f2end = vFeatVec2.end();
+        // DBoW2::FeatureVector::const_iterator f1it = vFeatVec1.begin();
+        // DBoW2::FeatureVector::const_iterator f2it = vFeatVec2.begin();
+        // DBoW2::FeatureVector::const_iterator f1end = vFeatVec1.end();
+        // DBoW2::FeatureVector::const_iterator f2end = vFeatVec2.end();
+        DBoW3::FeatureVector::const_iterator f1it = vFeatVec1.begin();
+        DBoW3::FeatureVector::const_iterator f2it = vFeatVec2.begin();
+        DBoW3::FeatureVector::const_iterator f1end = vFeatVec1.end();
+        DBoW3::FeatureVector::const_iterator f2end = vFeatVec2.end();
 
         while(f1it != f1end && f2it != f2end)
         {
@@ -899,8 +910,10 @@ namespace ORB_SLAM3
     int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2,
                                            vector<pair<size_t, size_t> > &vMatchedPairs, const bool bOnlyStereo, const bool bCoarse)
     {
-        const DBoW2::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
-        const DBoW2::FeatureVector &vFeatVec2 = pKF2->mFeatVec;
+        // const DBoW2::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
+        // const DBoW2::FeatureVector &vFeatVec2 = pKF2->mFeatVec;
+        const DBoW3::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
+        const DBoW3::FeatureVector &vFeatVec2 = pKF2->mFeatVec;
 
         //Compute epipole in second image
         Sophus::SE3f T1w = pKF1->GetPose();
@@ -947,10 +960,14 @@ namespace ORB_SLAM3
 
         const float factor = 1.0f/HISTO_LENGTH;
 
-        DBoW2::FeatureVector::const_iterator f1it = vFeatVec1.begin();
-        DBoW2::FeatureVector::const_iterator f2it = vFeatVec2.begin();
-        DBoW2::FeatureVector::const_iterator f1end = vFeatVec1.end();
-        DBoW2::FeatureVector::const_iterator f2end = vFeatVec2.end();
+        // DBoW2::FeatureVector::const_iterator f1it = vFeatVec1.begin();
+        // DBoW2::FeatureVector::const_iterator f2it = vFeatVec2.begin();
+        // DBoW2::FeatureVector::const_iterator f1end = vFeatVec1.end();
+        // DBoW2::FeatureVector::const_iterator f2end = vFeatVec2.end();
+        DBoW3::FeatureVector::const_iterator f1it = vFeatVec1.begin();
+        DBoW3::FeatureVector::const_iterator f2it = vFeatVec2.begin();
+        DBoW3::FeatureVector::const_iterator f1end = vFeatVec1.end();
+        DBoW3::FeatureVector::const_iterator f2end = vFeatVec2.end();
 
         while(f1it!=f1end && f2it!=f2end)
         {

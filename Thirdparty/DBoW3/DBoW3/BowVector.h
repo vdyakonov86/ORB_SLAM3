@@ -15,6 +15,8 @@
 #include "exports.h"
 #include <ostream>
 #include <string>
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/map.hpp>
 #if _WIN32
 #include <cstdint>
 #endif
@@ -60,6 +62,12 @@ enum ScoringType
 class DBOW_API BowVector:
 	public std::map<WordId, WordValue>
 {
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const int version)
+	{
+		ar & boost::serialization::base_object<std::map<WordId, WordValue> >(*this);
+	}
 public:
 
 	/** 
