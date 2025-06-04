@@ -93,9 +93,13 @@ namespace ORB_SLAM3
     // }
     int SuperGlueMatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoints, const float th, const bool bFarPoints, const float thFarPoints)
     {
-        int nmatches=0, left = 0, right = 0;
+        std::cout << "SearchByProjection 1" << std::endl;
 
-        const bool bFactor = th!=1.0;
+        int nmatches = 0;
+        vector<cv::KeyPoint> vpMapKeypoints;
+        cv::Mat vpMapDescriptors;
+        vector<MapPoint*> vpMapPointsValid;
+        vector<size_t> vIndicesValid;
 
         for(size_t iMP=0; iMP<vpMapPoints.size(); iMP++)
         {
@@ -109,90 +113,129 @@ namespace ORB_SLAM3
             if(pMP->isBad())
                 continue;
 
-            if(pMP->mbTrackInView)
-            {
-                const int &nPredictedLevel = pMP->mnTrackScaleLevel;
+            if(!pMP->mbTrackInView)
+                continue;
 
-                // The size of the window will depend on the viewing direction
-                float r = RadiusByViewingCos(pMP->mTrackViewCos);
-
-                if(bFactor)
-                    r*=th;
-
-                const vector<size_t> vIndices =
-                        F.GetFeaturesInArea(pMP->mTrackProjX,pMP->mTrackProjY,r*F.mvScaleFactors[nPredictedLevel],nPredictedLevel-1,nPredictedLevel);
-
-                if(!vIndices.empty()){
-                    const cv::Mat MPdescriptor = pMP->GetDescriptor();
-
-                    float bestDist=TH_MAX;
-                    int bestLevel= -1;
-                    float bestDist2=TH_MAX;
-                    int bestLevel2 = -1;
-                    int bestIdx =-1 ;
-
-                    // Get best and second matches with near keypoints
-                    for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++)
-                    {
-                        const size_t idx = *vit;
-
-                        if(F.mvpMapPoints[idx])
-                            if(F.mvpMapPoints[idx]->Observations()>0)
-                                continue;
-
-                        if(F.Nleft == -1 && F.mvuRight[idx]>0)
-                        {
-                            const float er = fabs(pMP->mTrackProjXR-F.mvuRight[idx]);
-                            if(er>r*F.mvScaleFactors[nPredictedLevel])
-                                continue;
-                        }
-
-                        const cv::Mat &d = F.mDescriptors.row(idx);
-
-                        const auto dist = DescriptorDistance(MPdescriptor,d,mDescriptorDistMetric);
-
-                        if(dist<bestDist)
-                        {
-                            bestDist2=bestDist;
-                            bestDist=dist;
-                            bestLevel2 = bestLevel;
-                            bestLevel = (F.Nleft == -1) ? F.mvKeysUn[idx].octave
-                                                        : (idx < F.Nleft) ? F.mvKeys[idx].octave
-                                                                          : F.mvKeysRight[idx - F.Nleft].octave;
-                            bestIdx=idx;
-                        }
-                        else if(dist<bestDist2)
-                        {
-                            bestLevel2 = (F.Nleft == -1) ? F.mvKeysUn[idx].octave
-                                                         : (idx < F.Nleft) ? F.mvKeys[idx].octave
-                                                                           : F.mvKeysRight[idx - F.Nleft].octave;
-                            bestDist2=dist;
-                        }
-                    }
-
-                    // Apply ratio to second match (only if best and second are in the same scale level)
-                    if(bestDist<=TH_HIGH)
-                    {
-                        if(bestLevel==bestLevel2 && bestDist>mfNNratio*bestDist2)
-                            continue;
-
-                        if(bestLevel!=bestLevel2 || bestDist<=mfNNratio*bestDist2){
-                            F.mvpMapPoints[bestIdx]=pMP;
-
-                            if(F.Nleft != -1 && F.mvLeftToRightMatch[bestIdx] != -1){ //Also match with the stereo observation at right camera
-                                F.mvpMapPoints[F.mvLeftToRightMatch[bestIdx] + F.Nleft] = pMP;
-                                nmatches++;
-                                right++;
-                            }
-
-                            nmatches++;
-                            left++;
-                        }
-                    }
-                }
-            }
-
+            vpMapDescriptors.push_back(pMP->GetDescriptor());
+            vpMapKeypoints.push_back(pMP->GetKeyPoint());
+            vpMapPointsValid.push_back(pMP);
         }
+
+        std::vector<cv::DMatch> matches;
+        matchDescriptorsSuperGlue(vpMapKeypoints, F.mvKeysUn, vpMapDescriptors, F.mDescriptors, matches, mImageSize);
+
+        for (int i = 0; i < matches.size(); i++) {
+            cv::DMatch& m = matches[i];
+            MapPoint* pMP = vpMapPointsValid[m.queryIdx];
+
+            
+            if(F.mvpMapPoints[m.trainIdx] && F.mvpMapPoints[m.trainIdx]->Observations()>0)
+                continue;
+
+            F.mvpMapPoints[m.trainIdx]=pMP;
+            nmatches++;
+        }
+
+
+        // int nmatches=0, left = 0, right = 0;
+        // const bool bFactor = th!=1.0;
+
+        // for(size_t iMP=0; iMP<vpMapPoints.size(); iMP++)
+        // {
+        //     MapPoint* pMP = vpMapPoints[iMP];
+        //     if(!pMP->mbTrackInView && !pMP->mbTrackInViewR)
+        //         continue;
+
+        //     if(bFarPoints && pMP->mTrackDepth>thFarPoints)
+        //         continue;
+
+        //     if(pMP->isBad())
+        //         continue;
+
+        //     if(pMP->mbTrackInView)
+        //     {
+        //         const int &nPredictedLevel = pMP->mnTrackScaleLevel;
+
+        //         // The size of the window will depend on the viewing direction
+        //         float r = RadiusByViewingCos(pMP->mTrackViewCos);
+
+        //         if(bFactor)
+        //             r*=th;
+
+        //         const vector<size_t> vIndices =
+        //                 F.GetFeaturesInArea(pMP->mTrackProjX,pMP->mTrackProjY,r*F.mvScaleFactors[nPredictedLevel],nPredictedLevel-1,nPredictedLevel);
+
+        //         if(!vIndices.empty()){
+        //             const cv::Mat MPdescriptor = pMP->GetDescriptor();
+
+        //             float bestDist=TH_MAX;
+        //             int bestLevel= -1;
+        //             float bestDist2=TH_MAX;
+        //             int bestLevel2 = -1;
+        //             int bestIdx =-1 ;
+
+        //             // Get best and second matches with near keypoints
+        //             for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++)
+        //             {
+        //                 const size_t idx = *vit;
+
+        //                 if(F.mvpMapPoints[idx])
+        //                     if(F.mvpMapPoints[idx]->Observations()>0)
+        //                         continue;
+
+        //                 if(F.Nleft == -1 && F.mvuRight[idx]>0)
+        //                 {
+        //                     const float er = fabs(pMP->mTrackProjXR-F.mvuRight[idx]);
+        //                     if(er>r*F.mvScaleFactors[nPredictedLevel])
+        //                         continue;
+        //                 }
+
+        //                 const cv::Mat &d = F.mDescriptors.row(idx);
+
+        //                 const auto dist = DescriptorDistance(MPdescriptor,d,mDescriptorDistMetric);
+
+        //                 if(dist<bestDist)
+        //                 {
+        //                     bestDist2=bestDist;
+        //                     bestDist=dist;
+        //                     bestLevel2 = bestLevel;
+        //                     bestLevel = (F.Nleft == -1) ? F.mvKeysUn[idx].octave
+        //                                                 : (idx < F.Nleft) ? F.mvKeys[idx].octave
+        //                                                                   : F.mvKeysRight[idx - F.Nleft].octave;
+        //                     bestIdx=idx;
+        //                 }
+        //                 else if(dist<bestDist2)
+        //                 {
+        //                     bestLevel2 = (F.Nleft == -1) ? F.mvKeysUn[idx].octave
+        //                                                  : (idx < F.Nleft) ? F.mvKeys[idx].octave
+        //                                                                    : F.mvKeysRight[idx - F.Nleft].octave;
+        //                     bestDist2=dist;
+        //                 }
+        //             }
+
+        //             // Apply ratio to second match (only if best and second are in the same scale level)
+        //             if(bestDist<=TH_HIGH)
+        //             {
+        //                 if(bestLevel==bestLevel2 && bestDist>mfNNratio*bestDist2)
+        //                     continue;
+
+        //                 if(bestLevel!=bestLevel2 || bestDist<=mfNNratio*bestDist2){
+        //                     F.mvpMapPoints[bestIdx]=pMP;
+
+        //                     if(F.Nleft != -1 && F.mvLeftToRightMatch[bestIdx] != -1){ //Also match with the stereo observation at right camera
+        //                         F.mvpMapPoints[F.mvLeftToRightMatch[bestIdx] + F.Nleft] = pMP;
+        //                         nmatches++;
+        //                         right++;
+        //                     }
+
+        //                     nmatches++;
+        //                     left++;
+        //                 }
+        //             }
+        //         }
+        //     }
+
+        // }
         return nmatches;
     }
 
@@ -210,6 +253,7 @@ namespace ORB_SLAM3
         std::vector<cv::DMatch> matches;
         matchDescriptorsSuperGlue(pKF->mvKeysUn, F.mvKeysUn, pKF->mDescriptors, F.mDescriptors, matches, mImageSize);
 
+        cout << "SearchByBoW matches size: " << matches.size() << endl;
         for (int i = 0; i < matches.size(); i++) {
             cv::DMatch& m = matches[i];
             MapPoint* pMP = vpMapPointsKF[m.queryIdx];
@@ -238,6 +282,7 @@ namespace ORB_SLAM3
     int SuperGlueMatcher::SearchByProjection(KeyFrame* pKF, Sophus::Sim3f &Scw, const vector<MapPoint*> &vpPoints,
                                        vector<MapPoint*> &vpMatched, int th, float ratioHamming)
     {
+        std::cout << "SearchByProjection 2" << std::endl;
         // Get Calibration Parameters for later projection
         const float &fx = pKF->fx;
         const float &fy = pKF->fy;
@@ -345,6 +390,7 @@ namespace ORB_SLAM3
     int SuperGlueMatcher::SearchByProjection(KeyFrame* pKF, Sophus::Sim3<float> &Scw, const std::vector<MapPoint*> &vpPoints, const std::vector<KeyFrame*> &vpPointsKFs,
                                        std::vector<MapPoint*> &vpMatched, std::vector<KeyFrame*> &vpMatchedKF, int th, float ratioHamming)
     {
+        std::cout << "SearchByProjection 3" << std::endl;
         // Get Calibration Parameters for later projection
         const float &fx = pKF->fx;
         const float &fy = pKF->fy;

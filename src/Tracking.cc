@@ -597,11 +597,11 @@ void Tracking::newParameterLoader(Settings *settings) {
     float fScaleFactor = settings->scaleFactor();
 
     mpORBextractorLeft = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-    auto sp = new Ort::SuperPoint("/orbslam3_dl/ws/models/super_point.onnx", 0);
+    auto sp = new Ort::SuperPoint("/orbslam3_dl/ws/models/super_point.onnx", 1);
 
     mpSuperPointExtractor = new SuperPointExtractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST,sp);
 
-    mSuperGlueModel = new Ort::SuperGlue("/orbslam3_dl/ws/models/super_glue.onnx", 0);
+    mSuperGlueModel = new Ort::SuperGlue("/orbslam3_dl/ws/models/super_glue.onnx", 1);
 
     if(mSensor==System::STEREO || mSensor==System::IMU_STEREO)
         mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
@@ -2901,7 +2901,7 @@ bool Tracking::TrackWithMotionModel()
     int nmatches = matcher->SearchByProjection(mCurrentFrame,mLastFrame,th,mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR);
     cout << "TrackWithMotionModel SearchByProjection nmatches: " << nmatches << endl;
     // If few matches, uses a wider window search
-    if(nmatches<20)
+    if(nmatches<20 && mMatcherType != eMatcherType::SUPERGLUE)
     {
         Verbose::PrintMess("Not enough matches, wider window search!!", Verbose::VERBOSITY_NORMAL);
         fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));

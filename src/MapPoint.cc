@@ -17,7 +17,9 @@
 */
 
 #include "MapPoint.h"
+#include "BaseMatcher.h"
 #include "ORBmatcher.h"
+#include "SuperPointMatcher.h"
 
 #include<mutex>
 
@@ -330,6 +332,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
 {
     // Retrieve all observed descriptors
     vector<cv::Mat> vDescriptors;
+    vector<cv::KeyPoint> vKeyPoints;
 
     map<KeyFrame*,tuple<int,int>> observations;
 
@@ -344,6 +347,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
         return;
 
     vDescriptors.reserve(observations.size());
+    vKeyPoints.reserve(observations.size());
 
     for(map<KeyFrame*,tuple<int,int>>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
     {
@@ -355,9 +359,11 @@ void MapPoint::ComputeDistinctiveDescriptors()
 
             if(leftIndex != -1){
                 vDescriptors.push_back(pKF->mDescriptors.row(leftIndex));
+                vKeyPoints.push_back(pKF->mvKeysUn[leftIndex]);
             }
             if(rightIndex != -1){
                 vDescriptors.push_back(pKF->mDescriptors.row(rightIndex));
+                vKeyPoints.push_back(pKF->mvKeysUn[rightIndex]);
             }
         }
     }
@@ -374,7 +380,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
         Distances[i][i]=0;
         for(size_t j=i+1;j<N;j++)
         {
-            auto distij = ORBmatcher::DescriptorDistance(vDescriptors[i],vDescriptors[j],mDescriptorDistMetric);
+            auto distij = BaseMatcher::DescriptorDistance(vDescriptors[i],vDescriptors[j],mDescriptorDistMetric);
             Distances[i][j]=distij;
             Distances[j][i]=distij;
         }
@@ -382,6 +388,11 @@ void MapPoint::ComputeDistinctiveDescriptors()
 
     // Take the descriptor with least median distance to the rest
     float BestMedian = ORBmatcher::TH_MAX;
+
+    // TODO: replace with eMatcherType checks
+    if (mDescriptorDistMetric == eDescriptorDistMetric::L2)
+        BestMedian = SuperPointMatcher::TH_MAX;
+    
     int BestIdx = 0;
     for(size_t i=0;i<N;i++)
     {
@@ -399,6 +410,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
     {
         unique_lock<mutex> lock(mMutexFeatures);
         mDescriptor = vDescriptors[BestIdx].clone();
+        mKeyPoint = vKeyPoints[BestIdx];
     }
 }
 
@@ -407,6 +419,13 @@ cv::Mat MapPoint::GetDescriptor()
     unique_lock<mutex> lock(mMutexFeatures);
     return mDescriptor.clone();
 }
+
+cv::KeyPoint MapPoint::GetKeyPoint()
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    return mKeyPoint;
+}
+
 
 tuple<int,int> MapPoint::GetIndexInKeyFrame(KeyFrame *pKF)
 {

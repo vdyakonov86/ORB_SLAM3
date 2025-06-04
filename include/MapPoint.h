@@ -144,6 +144,7 @@ public:
     void ComputeDistinctiveDescriptors();
 
     cv::Mat GetDescriptor();
+    cv::KeyPoint GetKeyPoint();
 
     void UpdateNormalAndDepth();
 
@@ -223,6 +224,8 @@ protected:
 
      // Best descriptor to fast matching
      cv::Mat mDescriptor;
+     // Associated keypoint
+     cv::KeyPoint mKeyPoint;
 
      // Reference KeyFrame
      KeyFrame* mpRefKF;
