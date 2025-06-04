@@ -72,16 +72,16 @@ namespace ORB_SLAM3
 
         vector<KeyPoint>& keypoints = result.first; 
         cv::Mat descriptors_ = cv::Mat(result.first.size(), 256, CV_32FC1);
-        cv::normalize(result.second, descriptors_, 1.0, 0.0, cv::NORM_L2);
+        // cv::normalize(result.second, descriptors_, 1.0, 0.0, cv::NORM_L2);
 
-        // for (int i=0; i < result.second.rows; i++) {
-        //     cv::normalize(result.second.row(i), result.second.row(i), 1.0, 0.0, cv::NORM_L2);
-        //     // Вычисляем L2-норму дескриптора
-        //     double norm = cv::norm(result.second.row(i), cv::NORM_L2);
-        //     // Проверяем, близка ли норма к 1 (с учетом погрешности)
-        //     bool is_normalized = std::abs(norm - 1.0) < 1e-5;
-        //     std::cout << "Normalized descriptor check: " << is_normalized << std::endl; 
-        // }
+        for (int i=0; i < result.second.rows; i++) {
+            cv::normalize(result.second.row(i), result.second.row(i), 1.0, 0.0, cv::NORM_L2);
+            // Вычисляем L2-норму дескриптора
+            // double norm = cv::norm(result.second.row(i), cv::NORM_L2);
+            // Проверяем, близка ли норма к 1 (с учетом погрешности)
+            // bool is_normalized = std::abs(norm - 1.0) < 1e-5;
+            // std::cout << "Normalized descriptor check: " << is_normalized << std::endl; 
+        }
         
         Mat descriptors;
         if( nkeypoints == 0 ) {
@@ -112,7 +112,7 @@ namespace ORB_SLAM3
             //     monoIndex++;
             // }
             _keypoints.at(monoIndex) = (*keypoint);
-            descriptors_.row(i).copyTo(descriptors.row(monoIndex));
+            result.second.row(i).copyTo(descriptors.row(monoIndex));
             monoIndex++;
             i++;
         }
