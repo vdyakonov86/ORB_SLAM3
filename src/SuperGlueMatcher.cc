@@ -1580,7 +1580,7 @@ namespace ORB_SLAM3
         return nmatches;
     }
 
-    int SuperGlueMatcher::SearchByProjection(Frame &CurrentFrame, KeyFrame *pKF, const set<MapPoint*> &sAlreadyFound, const float th , const int ORBdist)
+    int SuperGlueMatcher::SearchByProjection(Frame &CurrentFrame, KeyFrame *pKF, const set<MapPoint*> &sAlreadyFound, const float th , const float dist_high)
     {
         int nmatches = 0;
         const vector<MapPoint*> vpMPs = pKF->GetMapPointMatches();

@@ -1895,7 +1895,7 @@ namespace ORB_SLAM3
         return nmatches;
     }
 
-    int ORBmatcher::SearchByProjection(Frame &CurrentFrame, KeyFrame *pKF, const set<MapPoint*> &sAlreadyFound, const float th , const int ORBdist)
+    int ORBmatcher::SearchByProjection(Frame &CurrentFrame, KeyFrame *pKF, const set<MapPoint*> &sAlreadyFound, const float th , const float dist_high)
     {
         int nmatches = 0;
 
@@ -1972,7 +1972,7 @@ namespace ORB_SLAM3
                         }
                     }
 
-                    if(bestDist<=ORBdist)
+                    if(bestDist<=dist_high)
                     {
                         CurrentFrame.mvpMapPoints[bestIdx2]=pMP;
                         nmatches++;

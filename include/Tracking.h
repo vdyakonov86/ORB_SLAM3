@@ -379,6 +379,7 @@ protected:
     Ort::SuperGlue* mSuperGlueModel;
 
     eMatcherType mMatcherType;
+    bool mCheckOrientation;
 
     void newParameterLoader(Settings* settings);
 

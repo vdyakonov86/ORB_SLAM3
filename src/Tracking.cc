@@ -52,6 +52,9 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
 {
     // Load camera parameters from settings file
     mImageSize = cv::Size(640, 480); // TODO: INITIALIZE FROM CONFIG
+    mCheckOrientation = true;
+    // if (mMatcherType == eMatcherType::ORB)
+    //     mCheckOrientation = true;
 
     if(settings){
         newParameterLoader(settings);
@@ -2501,7 +2504,7 @@ void Tracking::MonocularInitialization()
         }
 
         // Find correspondences
-        auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.9, true, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
+        auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.9, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
         int nmatches = matcher->SearchForInitialization(mInitialFrame,mCurrentFrame,mvbPrevMatched,mvIniMatches,100);
         cout << "SearchForInitialization nmatches: " << nmatches << endl;
 
@@ -2738,7 +2741,7 @@ bool Tracking::TrackReferenceKeyFrame()
 
     // We perform first an ORB matching with the reference keyframe
     // If enough matches are found we setup a PnP solver
-    auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.7, true, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
+    auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.7, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
     vector<MapPoint*> vpMapPointMatches;
 
     int nmatches = matcher->SearchByBoW(mpReferenceKF,mCurrentFrame,vpMapPointMatches);
@@ -2868,7 +2871,7 @@ void Tracking::UpdateLastFrame()
 
 bool Tracking::TrackWithMotionModel()
 {
-    auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.9, true, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
+    auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.9, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
 
     // Update last frame pose according to its reference keyframe
     // Create "visual odometry" points if in Localization Mode
@@ -2895,6 +2898,8 @@ bool Tracking::TrackWithMotionModel()
 
     if(mSensor==System::STEREO)
         th=7;
+    else if (mMatcherType == eMatcherType::SUPERPOINT)
+        th = 30;
     else
         th=15;
 
@@ -3402,7 +3407,7 @@ void Tracking::SearchLocalPoints()
 
     if(nToMatch>0)
     {
-        auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.8, true, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
+        auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.8, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
 
         int th = 1;
         if(mSensor==System::RGBD || mSensor==System::IMU_RGBD)
@@ -3425,6 +3430,9 @@ void Tracking::SearchLocalPoints()
 
         if(mState==LOST || mState==RECENTLY_LOST) // Lost for less than 1 second
             th=15; // 15
+        
+        if (mMatcherType == eMatcherType::SUPERPOINT)
+            th = 30;
 
         int matches = matcher->SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
         std::cout << "SearchLocalPoints SearchByProjection matches: " << matches << std::endl; 
@@ -3642,7 +3650,7 @@ bool Tracking::Relocalization()
 
     // We perform first an ORB matching with each candidate
     // If enough matches are found we setup a PnP solver
-    auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.75, true, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
+    auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.75, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
 
     vector<MLPnPsolver*> vpMLPnPsolvers;
     vpMLPnPsolvers.resize(nKFs);
@@ -3682,7 +3690,7 @@ bool Tracking::Relocalization()
     // Alternatively perform some iterations of P4P RANSAC
     // Until we found a camera pose supported by enough inliers
     bool bMatch = false;
-    auto matcher2 = BaseMatcher::create_matcher(mMatcherType, 0.9, true, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
+    auto matcher2 = BaseMatcher::create_matcher(mMatcherType, 0.9, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
 
     while(nCandidates>0 && !bMatch)
     {
@@ -3741,7 +3749,14 @@ bool Tracking::Relocalization()
                 // If few inliers, search by projection in a coarse window and optimize again
                 if(nGood<50)
                 {
-                    int nadditional =matcher2->SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,10,100);
+                    float th = 10;
+                    float dist_high = 100;
+                    if (mMatcherType == eMatcherType::SUPERPOINT) {
+                        th = 30;
+                        dist_high = 1.2f;
+                    }
+
+                    int nadditional =matcher2->SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,th,dist_high);
                     cout << "Relocalization SearchByBoW nadditional 10,100: " << nadditional << endl;
 
                     if(nadditional+nGood>=50)
@@ -3752,11 +3767,17 @@ bool Tracking::Relocalization()
                         // the camera has been already optimized with many points
                         if(nGood>30 && nGood<50)
                         {
+                            float th = 3;
+                            float dist_high = 64;
+                            if (mMatcherType == eMatcherType::SUPERPOINT) {
+                                th = 20;
+                                dist_high = 0.9f;
+                            }
                             sFound.clear();
                             for(int ip =0; ip<mCurrentFrame.N; ip++)
                                 if(mCurrentFrame.mvpMapPoints[ip])
                                     sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
-                            nadditional =matcher2->SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,3,64);
+                            nadditional =matcher2->SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,th,dist_high);
                             cout << "Relocalization SearchByBoW nadditional 3,64: " << nadditional << endl;
 
                             // Final optimization
