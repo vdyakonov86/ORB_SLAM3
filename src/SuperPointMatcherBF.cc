@@ -207,7 +207,8 @@ namespace ORB_SLAM3
         int nmatches=0;
 
         std::vector<cv::DMatch> matches;
-        matchDescriptorsBF(pKF->mDescriptors, F.mDescriptors, matches);
+        // matchDescriptorsBF(pKF->mDescriptors, F.mDescriptors, matches);
+        matchDescriptorsFLANN(pKF->mDescriptors, F.mDescriptors, matches);
 
         for (int i = 0; i < matches.size(); i++) {
             cv::DMatch& m = matches[i];
@@ -468,7 +469,8 @@ namespace ORB_SLAM3
         vector<int> vnMatches21(F2.mvKeysUn.size(),-1);
         
         std::vector<cv::DMatch> matches;
-        matchDescriptorsBF(F1.mDescriptors, F2.mDescriptors, matches);
+        // matchDescriptorsBF(F1.mDescriptors, F2.mDescriptors, matches);
+        matchDescriptorsFLANN(F1.mDescriptors, F2.mDescriptors, matches);
 
         for (int i = 0; i < matches.size(); i++) {
             cv::DMatch& m = matches[i];
@@ -1509,7 +1511,8 @@ namespace ORB_SLAM3
         int nmatches = 0;
 
         std::vector<cv::DMatch> matches;
-        matchDescriptorsBF(LastFrame.mDescriptors, CurrentFrame.mDescriptors, matches);
+        // matchDescriptorsBF(LastFrame.mDescriptors, CurrentFrame.mDescriptors, matches);
+        matchDescriptorsFLANN(LastFrame.mDescriptors, CurrentFrame.mDescriptors, matches);
 
         for (int i = 0; i < matches.size(); i++) {
             cv::DMatch& m = matches[i];
@@ -1531,13 +1534,14 @@ namespace ORB_SLAM3
         return nmatches;
     }
 
-    int SuperPointMatcher::SearchByProjection(Frame &CurrentFrame, KeyFrame *pKF, const set<MapPoint*> &sAlreadyFound, const float th , const int ORBdist)
+    int SuperPointMatcher::SearchByProjection(Frame &CurrentFrame, KeyFrame *pKF, const set<MapPoint*> &sAlreadyFound, const float th , const float dist_high)
     {
         int nmatches = 0;
         const vector<MapPoint*> vpMPs = pKF->GetMapPointMatches();
 
         std::vector<cv::DMatch> matches;
-        matchDescriptorsBF(pKF->mDescriptors, CurrentFrame.mDescriptors, matches);
+        // matchDescriptorsBF(pKF->mDescriptors, CurrentFrame.mDescriptors, matches);
+        matchDescriptorsFLANN(pKF->mDescriptors, CurrentFrame.mDescriptors, matches);
 
         for (int i = 0; i < matches.size(); i++) {
             cv::DMatch& m = matches[i];
@@ -1602,6 +1606,68 @@ namespace ORB_SLAM3
         } else {
             // Обычный поиск (без кросс-проверки)
             matcher.match(descriptors1, descriptors2, matches);
+        }
+    }
+
+    void SuperPointMatcher::matchDescriptorsFLANN(
+        const cv::Mat& descriptors1,
+        const cv::Mat& descriptors2,
+        std::vector<cv::DMatch>& matches,
+        float maxDistance,
+        bool crossCheck
+    ) {
+        // 1. Проверка входных данных
+        if (descriptors1.empty() || descriptors2.empty()) {
+            std::cerr << "Error: Empty descriptors!" << std::endl;
+            return;
+        }
+
+        if (descriptors1.type() != descriptors2.type()) {
+            std::cerr << "Error: Descriptor types mismatch!" << std::endl;
+            return;
+        }
+
+        // 2. Проверка типа дескрипторов (FLANN требует CV_32F)
+        if (descriptors1.type() != CV_32F) {
+            std::cerr << "Error: FLANN matcher requires CV_32F descriptors!" << std::endl;
+            return;
+        }
+
+        try {
+            // 3. Создание FLANN-матчера
+            cv::Ptr<cv::FlannBasedMatcher> matcher = cv::FlannBasedMatcher::create();
+            
+            // 4. Поиск соответствий
+            if (crossCheck) {
+                // Кросс-проверка (более точные результаты)
+                std::vector<cv::DMatch> matches12, matches21;
+                matcher->match(descriptors1, descriptors2, matches12);
+                matcher->match(descriptors2, descriptors1, matches21);
+
+                // Фильтрация по взаимной согласованности
+                for (const auto& m12 : matches12) {
+                    for (const auto& m21 : matches21) {
+                        if (m12.queryIdx == m21.trainIdx && 
+                            m12.trainIdx == m21.queryIdx &&
+                            m12.distance <= maxDistance) {
+                            matches.push_back(m12);
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // Обычный поиск + фильтрация по расстоянию
+                std::vector<cv::DMatch> allMatches;
+                matcher->match(descriptors1, descriptors2, allMatches);
+                
+                for (const auto& m : allMatches) {
+                    if (m.distance <= maxDistance) {
+                        matches.push_back(m);
+                    }
+                }
+            }
+        } catch (const cv::Exception& e) {
+            std::cerr << "FLANN matching error: " << e.what() << std::endl;
         }
     }
 

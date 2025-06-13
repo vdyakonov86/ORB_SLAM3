@@ -91,6 +91,14 @@ namespace ORB_SLAM3
             bool crossCheck = true
         ); 
 
+        void matchDescriptorsFLANN(
+            const cv::Mat& descriptors1,
+            const cv::Mat& descriptors2,
+            std::vector<cv::DMatch>& matches,
+            float maxDistance = 0.8f,
+            bool crossCheck = true
+        );
+
     public:
 
         static const float TH_LOW;
