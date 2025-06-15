@@ -2914,8 +2914,8 @@ bool Tracking::TrackWithMotionModel()
 
     if(mSensor==System::STEREO)
         th=7;
-    else if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::SUPERGLUE || mMatcherType == eMatcherType::SUPERGLUE)
-        th = 30;
+    // else if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::SUPERGLUE)
+    //     th = 30;
     else
         th=15;
 
@@ -3460,8 +3460,8 @@ void Tracking::SearchLocalPoints()
         if(mState==LOST || mState==RECENTLY_LOST) // Lost for less than 1 second
             th=15; // 15
         
-        if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::SUPERGLUE)
-            th = 30;
+        // if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::SUPERGLUE)
+        //     th = 30;
 
         cout << "SearchLocalPoints SearchByProjection" << endl; 
         int matches = matcher->SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
@@ -3779,12 +3779,12 @@ bool Tracking::Relocalization()
                         mCurrentFrame.mvpMapPoints[io]=static_cast<MapPoint*>(NULL);
 
                 // If few inliers, search by projection in a coarse window and optimize again
-                if(nGood<50)
+                if(nGood<50 && mMatcherType != eMatcherType::SUPERGLUE)
                 {
                     float th = 10;
                     float dist_high = 100;
                     if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::SUPERGLUE) {
-                        th = 30;
+                        // th = 30;
                         dist_high = 1.2f;
                     }
 
@@ -3803,7 +3803,7 @@ bool Tracking::Relocalization()
                             float th = 3;
                             float dist_high = 64;
                             if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::SUPERGLUE || mMatcherType == eMatcherType::SUPERGLUE) {
-                                th = 20;
+                                // th = 20;
                                 dist_high = 0.9f;
                             }
                             sFound.clear();
