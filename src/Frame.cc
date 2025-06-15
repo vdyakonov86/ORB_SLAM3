@@ -207,7 +207,6 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
 {
     // Frame ID
     mnId=nNextId++;
-    std::cout << "FRAME CREATE" << std::endl;
 
     // Scale Level Info
     mnScaleLevels = mpSuperPointExtractor->GetLevels();
@@ -230,6 +229,8 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
 #endif
 
     N = mvKeys.size();
+    
+    cout << "mvKeys: " << N << endl;
 
     if(mvKeys.empty())
         return;
@@ -429,6 +430,8 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
 
     N = mvKeys.size();
 
+    cout << "mvKeys: " << N << endl;
+
     if(mvKeys.empty())
         return;
 
@@ -627,8 +630,6 @@ void Frame::ExtractSuperPoint(const cv::Mat &im, const int x0, const int x1)
 {   
     vector<int> vLapping = {x0,x1};
     monoLeft = (*mpSuperPointExtractor)(im,cv::Mat(),mvKeys,mDescriptors,vLapping);
-
-    std::cout << "mvKeys: " << mvKeys.size() << std:: endl;
 }
 
 bool Frame::isSet() const {

@@ -224,6 +224,8 @@ void Tracking::TrackStats2File()
     f << fixed;
     f << "Number of KFs: " << mpAtlas->GetAllKeyFrames().size() << endl;
     f << "Number of MPs: " << mpAtlas->GetAllMapPoints().size() << endl;
+    f << "Number of lost tracking: " << mLostTrackCounter << endl;
+    f << "Number of failt to track local map: " << mLostTrackLocalMapCounter << endl;
 
     f << "OpenCV version: " << CV_VERSION << endl;
 
@@ -1959,12 +1961,14 @@ void Tracking::Track()
                 CheckReplacedInLastFrame();
 
                 if((!mbVelocity && !pCurrentMap->isImuInitialized()) || mCurrentFrame.mnId<mnLastRelocFrameId+2)
-                {
+                {   
+                    cout << "TRACK: Track with respect to the reference KF" << endl;
                     Verbose::PrintMess("TRACK: Track with respect to the reference KF ", Verbose::VERBOSITY_DEBUG);
                     bOK = TrackReferenceKeyFrame();
                 }
                 else
                 {
+                    cout << "TRACK: Track with motion model" << endl;
                     Verbose::PrintMess("TRACK: Track with motion model", Verbose::VERBOSITY_DEBUG);
                     bOK = TrackWithMotionModel();
                     if(!bOK)
@@ -1995,7 +1999,8 @@ void Tracking::Track()
             {
 
                 if (mState == RECENTLY_LOST)
-                {
+                {   
+                    cout << "Lost for a short time" << endl;
                     Verbose::PrintMess("Lost for a short time", Verbose::VERBOSITY_NORMAL);
 
                     bOK = true;
@@ -2008,6 +2013,8 @@ void Tracking::Track()
 
                         if (mCurrentFrame.mTimeStamp-mTimeStampLost>time_recently_lost)
                         {
+                            cout << "Track Lost..." << endl;
+                            mLostTrackCounter++;
                             mState = LOST;
                             Verbose::PrintMess("Track Lost...", Verbose::VERBOSITY_NORMAL);
                             bOK=false;
@@ -2021,6 +2028,8 @@ void Tracking::Track()
                         //std::cout << "mTimeStampLost:" << to_string(mTimeStampLost) << std::endl;
                         if(mCurrentFrame.mTimeStamp-mTimeStampLost>3.0f && !bOK)
                         {
+                            cout << "Track Lost..." << endl;
+                            mLostTrackCounter++;
                             mState = LOST;
                             Verbose::PrintMess("Track Lost...", Verbose::VERBOSITY_NORMAL);
                             bOK=false;
@@ -2029,11 +2038,13 @@ void Tracking::Track()
                 }
                 else if (mState == LOST)
                 {
+                    cout << "A new map is started..." << endl;
 
                     Verbose::PrintMess("A new map is started...", Verbose::VERBOSITY_NORMAL);
 
                     if (pCurrentMap->KeyFramesInMap()<10)
                     {
+                        cout << "Reseting current map..." << endl;
                         mpSystem->ResetActiveMap();
                         Verbose::PrintMess("Reseting current map...", Verbose::VERBOSITY_NORMAL);
                     }else
@@ -2051,6 +2062,7 @@ void Tracking::Track()
         }
         else
         {
+            // Здесь в моём случае код не исполняется 
             // Localization Mode: Local Mapping is deactivated (TODO Not available in inertial mode)
             if(mState==LOST)
             {
@@ -2143,8 +2155,10 @@ void Tracking::Track()
                 bOK = TrackLocalMap();
 
             }
-            if(!bOK)
+            if(!bOK) {
+                mLostTrackLocalMapCounter++;
                 cout << "Fail to track local map!" << endl;
+            }
         }
         else
         {
@@ -2505,8 +2519,9 @@ void Tracking::MonocularInitialization()
 
         // Find correspondences
         auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.9, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
+        cout << "SearchForInitialization" << endl;
         int nmatches = matcher->SearchForInitialization(mInitialFrame,mCurrentFrame,mvbPrevMatched,mvIniMatches,100);
-        cout << "SearchForInitialization nmatches: " << nmatches << endl;
+        cout << "nmatches: " << nmatches << endl;
 
         // Check if there are enough correspondences
         if(nmatches<100)
@@ -2744,8 +2759,9 @@ bool Tracking::TrackReferenceKeyFrame()
     auto matcher = BaseMatcher::create_matcher(mMatcherType, 0.7, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
     vector<MapPoint*> vpMapPointMatches;
 
+    cout << "TrackReferenceKeyFrame SearchByBoW" << endl;
     int nmatches = matcher->SearchByBoW(mpReferenceKF,mCurrentFrame,vpMapPointMatches);
-    cout << "TrackReferenceKeyFrame SearchByBoW nmatches: " << nmatches << endl;
+    cout << "matches: " << nmatches << endl;
 
     if(nmatches<15)
     {
@@ -2898,26 +2914,30 @@ bool Tracking::TrackWithMotionModel()
 
     if(mSensor==System::STEREO)
         th=7;
-    else if (mMatcherType == eMatcherType::SUPERPOINT)
+    else if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::SUPERGLUE || mMatcherType == eMatcherType::SUPERGLUE)
         th = 30;
     else
         th=15;
 
+    cout << "TrackWithMotionModel SearchByProjection" << endl;
     int nmatches = matcher->SearchByProjection(mCurrentFrame,mLastFrame,th,mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR);
-    cout << "TrackWithMotionModel SearchByProjection nmatches: " << nmatches << endl;
+    cout << "nmatches: " << nmatches << endl;
     // If few matches, uses a wider window search
     if(nmatches<20 && mMatcherType != eMatcherType::SUPERGLUE)
     {
         Verbose::PrintMess("Not enough matches, wider window search!!", Verbose::VERBOSITY_NORMAL);
         fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
 
+        cout << "TrackWithMotionModel SearchByProjection WIDER WINDOW" << endl;
         nmatches = matcher->SearchByProjection(mCurrentFrame,mLastFrame,2*th,mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR);
+        cout << "nmatches: " << nmatches << endl;
         Verbose::PrintMess("Matches with wider search: " + to_string(nmatches), Verbose::VERBOSITY_NORMAL);
 
     }
 
     if(nmatches<20)
     {
+        cout << "Not enough matches!!" << endl;
         Verbose::PrintMess("Not enough matches!!", Verbose::VERBOSITY_NORMAL);
         if (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
             return true;
@@ -2954,6 +2974,8 @@ bool Tracking::TrackWithMotionModel()
         }
     }
 
+    cout << "nmatches after discarding outliers: " << nmatches << endl;
+    cout << "nmatchesMap: " << nmatchesMap << endl;
     if(mbOnlyTracking)
     {
         mbVO = nmatchesMap<10;
@@ -2993,6 +3015,7 @@ bool Tracking::TrackLocalMap()
     {
         if(mCurrentFrame.mnId<=mnLastRelocFrameId+mnFramesToResetIMU)
         {
+            cout << "TLM: PoseOptimization" << endl; 
             Verbose::PrintMess("TLM: PoseOptimization ", Verbose::VERBOSITY_DEBUG);
             Optimizer::PoseOptimization(&mCurrentFrame);
         }
@@ -3001,11 +3024,13 @@ bool Tracking::TrackLocalMap()
             // if(!mbMapUpdated && mState == OK) //  && (mnMatchesInliers>30))
             if(!mbMapUpdated) //  && (mnMatchesInliers>30))
             {
+                cout << "TLM: PoseInertialOptimizationLastFrame" << endl;
                 Verbose::PrintMess("TLM: PoseInertialOptimizationLastFrame ", Verbose::VERBOSITY_DEBUG);
                 inliers = Optimizer::PoseInertialOptimizationLastFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
             }
             else
             {
+                cout << "TLM: PoseInertialOptimizationLastKeyFrame" << endl;
                 Verbose::PrintMess("TLM: PoseInertialOptimizationLastKeyFrame ", Verbose::VERBOSITY_DEBUG);
                 inliers = Optimizer::PoseInertialOptimizationLastKeyFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
             }
@@ -3046,8 +3071,12 @@ bool Tracking::TrackLocalMap()
 
     // Decide if the tracking was succesful
     // More restrictive if there was a relocalization recently
+    cout << "mnMatchesInliers: " << mnMatchesInliers << endl; 
+    int inliers_th_1 = 50;
+    int inliers_th_2 = 30;
+
     mpLocalMapper->mnMatchesInliers=mnMatchesInliers;
-    if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && mnMatchesInliers<50)
+    if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && mnMatchesInliers<inliers_th_1)
         return false;
 
     if((mnMatchesInliers>10)&&(mState==RECENTLY_LOST))
@@ -3056,7 +3085,7 @@ bool Tracking::TrackLocalMap()
 
     if (mSensor == System::IMU_MONOCULAR)
     {
-        if((mnMatchesInliers<15 && mpAtlas->isImuInitialized())||(mnMatchesInliers<50 && !mpAtlas->isImuInitialized()))
+        if((mnMatchesInliers<15 && mpAtlas->isImuInitialized())||(mnMatchesInliers<inliers_th_1 && !mpAtlas->isImuInitialized()))
         {
             return false;
         }
@@ -3074,7 +3103,7 @@ bool Tracking::TrackLocalMap()
     }
     else
     {
-        if(mnMatchesInliers<30)
+        if(mnMatchesInliers<inliers_th_2)
             return false;
         else
             return true;
@@ -3431,11 +3460,12 @@ void Tracking::SearchLocalPoints()
         if(mState==LOST || mState==RECENTLY_LOST) // Lost for less than 1 second
             th=15; // 15
         
-        if (mMatcherType == eMatcherType::SUPERPOINT)
+        if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::SUPERGLUE)
             th = 30;
 
+        cout << "SearchLocalPoints SearchByProjection" << endl; 
         int matches = matcher->SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
-        std::cout << "SearchLocalPoints SearchByProjection matches: " << matches << std::endl; 
+        cout << "matches: " << matches << endl; 
     }
 }
 
@@ -3669,9 +3699,10 @@ bool Tracking::Relocalization()
         if(pKF->isBad())
             vbDiscarded[i] = true;
         else
-        {
+        {   
+            cout << "Relocalization SearchByBoW. " << "nKFs: " << nKFs << " i: " << i << endl;
             int nmatches = matcher->SearchByBoW(pKF,mCurrentFrame,vvpMapPointMatches[i]);
-            cout << "Relocalization SearchByBoW nmatches: " << nmatches << endl;
+            cout << "nmatches: " << nmatches << endl;
             if(nmatches<15)
             {
                 vbDiscarded[i] = true;
@@ -3736,8 +3767,9 @@ bool Tracking::Relocalization()
                     else
                         mCurrentFrame.mvpMapPoints[j]=NULL;
                 }
-
+                cout << "PoseOptimization" << endl;
                 int nGood = Optimizer::PoseOptimization(&mCurrentFrame);
+                cout << "nGood: " << nGood << endl;
 
                 if(nGood<10)
                     continue;
@@ -3751,13 +3783,14 @@ bool Tracking::Relocalization()
                 {
                     float th = 10;
                     float dist_high = 100;
-                    if (mMatcherType == eMatcherType::SUPERPOINT) {
+                    if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::SUPERGLUE) {
                         th = 30;
                         dist_high = 1.2f;
                     }
 
+                    cout << "Relocalization SearchByProjection. th: " << th << " dist_high: " << dist_high << endl;
                     int nadditional =matcher2->SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,th,dist_high);
-                    cout << "Relocalization SearchByBoW nadditional 10,100: " << nadditional << endl;
+                    cout << "nadditional: " << nadditional << endl;
 
                     if(nadditional+nGood>=50)
                     {
@@ -3769,7 +3802,7 @@ bool Tracking::Relocalization()
                         {
                             float th = 3;
                             float dist_high = 64;
-                            if (mMatcherType == eMatcherType::SUPERPOINT) {
+                            if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::SUPERGLUE || mMatcherType == eMatcherType::SUPERGLUE) {
                                 th = 20;
                                 dist_high = 0.9f;
                             }
@@ -3777,8 +3810,10 @@ bool Tracking::Relocalization()
                             for(int ip =0; ip<mCurrentFrame.N; ip++)
                                 if(mCurrentFrame.mvpMapPoints[ip])
                                     sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
+
+                            cout << "Relocalization SearchByProjection. th: " << th << " dist_high: " << dist_high << endl;
                             nadditional =matcher2->SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,th,dist_high);
-                            cout << "Relocalization SearchByBoW nadditional 3,64: " << nadditional << endl;
+                            cout << "nadditional: " << nadditional << endl;
 
                             // Final optimization
                             if(nGood+nadditional>=50)

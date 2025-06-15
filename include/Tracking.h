@@ -381,6 +381,9 @@ protected:
     eMatcherType mMatcherType;
     bool mCheckOrientation;
 
+    int mLostTrackCounter;
+    int mLostTrackLocalMapCounter;
+
     void newParameterLoader(Settings* settings);
 
 #ifdef REGISTER_LOOP
