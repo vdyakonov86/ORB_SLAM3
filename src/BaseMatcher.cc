@@ -25,6 +25,8 @@ ORB_SLAM3::BaseMatcher::create_matcher(
                 check_orientation, 
                 dist_metric
             );
+        case eMatcherType::HYBRID:
+            return std::make_unique<SuperPointMatcher>(nn_ratio, check_orientation, dist_metric);
         default:
             throw std::invalid_argument("Unknown matcher type");
     }

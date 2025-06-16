@@ -2904,9 +2904,6 @@ bool Tracking::TrackWithMotionModel()
         mCurrentFrame.SetPose(mVelocity * mLastFrame.GetPose());
     }
 
-
-
-
     fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
 
     // Project points seen in previous frame
@@ -2976,16 +2973,62 @@ bool Tracking::TrackWithMotionModel()
 
     cout << "nmatches after discarding outliers: " << nmatches << endl;
     cout << "nmatchesMap: " << nmatchesMap << endl;
+
+    int nmatches_additional = 0;
+    int nmatchesMap_additional = 0;
+
+    // if(nmatches<20 && mMatcherType == eMatcherType::HYBRID)
+    if(mMatcherType == eMatcherType::HYBRID)
+    {   
+        auto matcher2 = BaseMatcher::create_matcher(eMatcherType::SUPERGLUE, 0.9, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
+        cout << "TrackWithMotionModel SearchByProjection HYBRID" << endl;
+        nmatches_additional = matcher2->SearchByProjection(mCurrentFrame,mLastFrame,th,mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR);
+        cout << "nmatches_additional: " << nmatches_additional << endl;
+        
+        if (nmatches_additional) {
+            // Optimize frame pose with all matches
+            Optimizer::PoseOptimization(&mCurrentFrame);
+
+            // Discard outliers
+            for(int i =0; i<mCurrentFrame.N; i++)
+            {
+                if(mCurrentFrame.mvpMapPoints[i])
+                {
+                    if(mCurrentFrame.mvbOutlier[i])
+                    {
+                        MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
+
+                        mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
+                        mCurrentFrame.mvbOutlier[i]=false;
+                        if(i < mCurrentFrame.Nleft){
+                            pMP->mbTrackInView = false;
+                        }
+                        else{
+                            pMP->mbTrackInViewR = false;
+                        }
+                        pMP->mnLastFrameSeen = mCurrentFrame.mnId;
+                        nmatches--;
+                    }
+                    else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
+                        nmatchesMap_additional++;
+                }
+            }
+
+            cout << "nmatches_additional after discarding outliers: " << nmatches_additional << endl;
+            cout << "nmatchesMap_additional: " << nmatchesMap_additional << endl;
+        }
+    }
+
     if(mbOnlyTracking)
     {
-        mbVO = nmatchesMap<10;
-        return nmatches>20;
+        mbVO = nmatchesMap+nmatchesMap_additional<10;
+        return nmatches+nmatches_additional>20;
     }
 
     if (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
         return true;
     else
-        return nmatchesMap>=10;
+        return nmatchesMap+nmatchesMap_additional>=10;
 }
 
 bool Tracking::TrackLocalMap()
@@ -3466,6 +3509,13 @@ void Tracking::SearchLocalPoints()
         cout << "SearchLocalPoints SearchByProjection" << endl; 
         int matches = matcher->SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
         cout << "matches: " << matches << endl; 
+
+        if (mMatcherType == eMatcherType::HYBRID) {
+            cout << "SearchLocalPoints SearchByProjection HYBRID" << endl; 
+            auto matcher2 = BaseMatcher::create_matcher(eMatcherType::SUPERGLUE, 0.8, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
+            int matches2 = matcher2->SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
+            cout << "matches2: " << matches2 << endl; 
+        }
     }
 }
 
@@ -3783,9 +3833,9 @@ bool Tracking::Relocalization()
                 {
                     float th = 10;
                     float dist_high = 100;
-                    if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::SUPERGLUE) {
+                    if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::HYBRID) {
                         // th = 30;
-                        dist_high = 1.2f;
+                        dist_high = 1.2;
                     }
 
                     cout << "Relocalization SearchByProjection. th: " << th << " dist_high: " << dist_high << endl;
@@ -3802,9 +3852,9 @@ bool Tracking::Relocalization()
                         {
                             float th = 3;
                             float dist_high = 64;
-                            if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::SUPERGLUE || mMatcherType == eMatcherType::SUPERGLUE) {
+                            if (mMatcherType == eMatcherType::SUPERPOINT || mMatcherType == eMatcherType::HYBRID) {
                                 // th = 20;
-                                dist_high = 0.9f;
+                                dist_high = 0.9;
                             }
                             sFound.clear();
                             for(int ip =0; ip<mCurrentFrame.N; ip++)

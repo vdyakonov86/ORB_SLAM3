@@ -22,13 +22,15 @@ class SuperGlueMatcher;
 enum class eMatcherType {
     ORB,
     SUPERPOINT,
-    SUPERGLUE
+    SUPERGLUE,
+    HYBRID
 };
 
 inline eMatcherType stringToMatcherType(const std::string& str) {
     if (str == "ORB") return eMatcherType::ORB;
     if (str == "SUPERPOINT") return eMatcherType::SUPERPOINT;
     if (str == "SUPERGLUE") return eMatcherType::SUPERGLUE;
+    if (str == "HYBRID") return eMatcherType::HYBRID;
     throw std::invalid_argument("Unknown matcher type: " + str);
 }
 
