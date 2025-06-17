@@ -2762,8 +2762,17 @@ bool Tracking::TrackReferenceKeyFrame()
     cout << "TrackReferenceKeyFrame SearchByBoW" << endl;
     int nmatches = matcher->SearchByBoW(mpReferenceKF,mCurrentFrame,vpMapPointMatches);
     cout << "matches: " << nmatches << endl;
+    int nmatches_additional = 0;
 
-    if(nmatches<15)
+    if (mMatcherType == eMatcherType::HYBRID) {
+        auto matcher2 = BaseMatcher::create_matcher(eMatcherType::SUPERGLUE, 0.7, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
+        cout << "TrackReferenceKeyFrame SearchByBoW HYBRID" << endl;
+        nmatches_additional = matcher2->SearchByBoW(mpReferenceKF,mCurrentFrame,vpMapPointMatches);
+        cout << "nmatches_additional: " << nmatches_additional << endl;
+    }
+    
+
+    if(nmatches + nmatches_additional<15)
     {
         cout << "TRACK_REF_KF: Less than 15 matches!!\n";
         return false;
@@ -2805,6 +2814,8 @@ bool Tracking::TrackReferenceKeyFrame()
                 nmatchesMap++;
         }
     }
+
+    cout << "nmatchesMap: " << nmatchesMap << endl;
 
     if (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
         return true;
@@ -3760,6 +3771,12 @@ bool Tracking::Relocalization()
             }
             else
             {
+                if (mMatcherType == eMatcherType::HYBRID) {
+                    auto matcher2 = BaseMatcher::create_matcher(eMatcherType::SUPERGLUE, 0.7, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
+                    cout << "Relocalization SearchByBoW HYBRID" << endl;
+                    int nmatches_additional = matcher2->SearchByBoW(pKF,mCurrentFrame,vvpMapPointMatches[i]);
+                    cout << "nmatches_additional: " << nmatches_additional << endl;
+                }
                 MLPnPsolver* pSolver = new MLPnPsolver(mCurrentFrame,vvpMapPointMatches[i]);
                 pSolver->SetRansacParameters(0.99,10,300,6,0.5,5.991);  //This solver needs at least 6 points
                 vpMLPnPsolvers[i] = pSolver;
