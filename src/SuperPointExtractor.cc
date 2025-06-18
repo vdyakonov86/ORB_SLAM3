@@ -53,7 +53,7 @@ namespace ORB_SLAM3
         Mat image = _image.getMat();
         assert(image.type() == CV_8UC1 );
 
-        KeyPointAndDesc result = superPoint->inference(*superPoint, image, 4, 0.015, true, 2);
+        KeyPointAndDesc result = superPoint->inference(*superPoint, image, 4, 0.0001, true, 5);
         const int nkeypoints = result.first.size();
 
         // Add border to coordinates and scale information
@@ -68,7 +68,7 @@ namespace ORB_SLAM3
         //     result.first[i].size = scaledPatchSize;
         // }
 
-        computeOrientation(image, result.first, umax);
+        // computeOrientation(image, result.first, umax);
 
         vector<KeyPoint>& keypoints = result.first; 
         cv::Mat descriptors_ = cv::Mat(result.first.size(), 256, CV_32FC1);
@@ -82,6 +82,8 @@ namespace ORB_SLAM3
             // bool is_normalized = std::abs(norm - 1.0) < 1e-5;
             // std::cout << "Normalized descriptor check: " << is_normalized << std::endl; 
         }
+        // cv::normalize(result.second, result.second, 1.0, 0.0, cv::NORM_L2);
+
         
         Mat descriptors;
         if( nkeypoints == 0 ) {

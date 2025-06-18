@@ -13,8 +13,8 @@ using namespace std;
 
 namespace ORB_SLAM3
 {
-    const float SuperPointMatcher::TH_HIGH = 1.2f;
-    const float SuperPointMatcher::TH_LOW = 0.6f;
+    const float SuperPointMatcher::TH_HIGH = 0.6f;
+    const float SuperPointMatcher::TH_LOW = 0.3f;
     const float SuperPointMatcher::TH_MAX = 2.0f;
     const int SuperPointMatcher::HISTO_LENGTH = 30;
 
@@ -196,6 +196,7 @@ namespace ORB_SLAM3
     
     int SuperPointMatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPointMatches)
     {
+        cout << "SearchByBoW 1" << endl;
         const vector<MapPoint*> vpMapPointsKF = pKF->GetMapPointMatches();
 
         vpMapPointMatches = vector<MapPoint*>(F.N,static_cast<MapPoint*>(NULL));
@@ -743,6 +744,7 @@ namespace ORB_SLAM3
 
     int SuperPointMatcher::SearchByBoW(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &vpMatches12)
     {
+        cout << "SearchByBoW 2" << std::endl;
         const vector<cv::KeyPoint> &vKeysUn1 = pKF1->mvKeysUn;
         // const DBoW2::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
         const DBoW3::FeatureVector &vFeatVec1 = pKF1->mFeatVec;

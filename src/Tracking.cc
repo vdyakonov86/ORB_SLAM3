@@ -52,9 +52,9 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
 {
     // Load camera parameters from settings file
     mImageSize = cv::Size(640, 480); // TODO: INITIALIZE FROM CONFIG
-    mCheckOrientation = true;
-    // if (mMatcherType == eMatcherType::ORB)
-    //     mCheckOrientation = true;
+    mCheckOrientation = false;
+    if (mMatcherType == eMatcherType::ORB)
+        mCheckOrientation = true;
 
     if(settings){
         newParameterLoader(settings);
@@ -602,11 +602,11 @@ void Tracking::newParameterLoader(Settings *settings) {
     float fScaleFactor = settings->scaleFactor();
 
     mpORBextractorLeft = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-    auto sp = new Ort::SuperPoint("/orbslam3_dl/ws/models/super_point.onnx", 1);
+    auto sp = new Ort::SuperPoint("/orbslam3_dl/ws/models/super_point.onnx", 0);
 
     mpSuperPointExtractor = new SuperPointExtractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST,sp);
 
-    mSuperGlueModel = new Ort::SuperGlue("/orbslam3_dl/ws/models/super_glue.onnx", 1);
+    mSuperGlueModel = new Ort::SuperGlue("/orbslam3_dl/ws/models/super_glue.onnx", 0);
 
     if(mSensor==System::STEREO || mSensor==System::IMU_STEREO)
         mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
@@ -2764,7 +2764,7 @@ bool Tracking::TrackReferenceKeyFrame()
     cout << "matches: " << nmatches << endl;
     int nmatches_additional = 0;
 
-    if (mMatcherType == eMatcherType::HYBRID) {
+    if (mMatcherType == eMatcherType::HYBRID && nmatches < 15) {
         auto matcher2 = BaseMatcher::create_matcher(eMatcherType::SUPERGLUE, 0.7, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
         cout << "TrackReferenceKeyFrame SearchByBoW HYBRID" << endl;
         nmatches_additional = matcher2->SearchByBoW(mpReferenceKF,mCurrentFrame,vpMapPointMatches);
@@ -2988,8 +2988,8 @@ bool Tracking::TrackWithMotionModel()
     int nmatches_additional = 0;
     int nmatchesMap_additional = 0;
 
-    // if(nmatches<20 && mMatcherType == eMatcherType::HYBRID)
-    if(mMatcherType == eMatcherType::HYBRID)
+    if(nmatches<20 && mMatcherType == eMatcherType::HYBRID)
+    // if(mMatcherType == eMatcherType::HYBRID)
     {   
         auto matcher2 = BaseMatcher::create_matcher(eMatcherType::SUPERGLUE, 0.9, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
         cout << "TrackWithMotionModel SearchByProjection HYBRID" << endl;
@@ -3521,7 +3521,7 @@ void Tracking::SearchLocalPoints()
         int matches = matcher->SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
         cout << "matches: " << matches << endl; 
 
-        if (mMatcherType == eMatcherType::HYBRID) {
+        if (mMatcherType == eMatcherType::HYBRID && matches < 15) {
             cout << "SearchLocalPoints SearchByProjection HYBRID" << endl; 
             auto matcher2 = BaseMatcher::create_matcher(eMatcherType::SUPERGLUE, 0.8, mCheckOrientation, mDescriptorDistMetric, mSuperGlueModel, mImageSize);
             int matches2 = matcher2->SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);

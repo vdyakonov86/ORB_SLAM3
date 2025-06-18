@@ -55,6 +55,24 @@ public:
             keypoint->angle = IC_Angle(image, keypoint->pt, umax);
         }
     }
+
+    static bool compareNodes(std::pair<int,ExtractorNode*>& e1, std::pair<int,ExtractorNode*>& e2){
+        if(e1.first < e2.first){
+            return true;
+        }
+        else if(e1.first > e2.first){
+            return false;
+        }
+        else{
+            if(e1.second->UL.x < e2.second->UL.x){
+                return true;
+            }
+            else{
+                return false;
+            }
+        }
+    }
+
 };
 
 } //namespace ORB_SLAM

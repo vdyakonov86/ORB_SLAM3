@@ -253,7 +253,6 @@ namespace ORB_SLAM3
         std::vector<cv::DMatch> matches;
         matchDescriptorsSuperGlue(pKF->mvKeysUn, F.mvKeysUn, pKF->mDescriptors, F.mDescriptors, matches, mImageSize);
 
-        cout << "SearchByBoW matches size: " << matches.size() << endl;
         for (int i = 0; i < matches.size(); i++) {
             cv::DMatch& m = matches[i];
             MapPoint* pMP = vpMapPointsKF[m.queryIdx];
@@ -278,6 +277,214 @@ namespace ORB_SLAM3
         
         return nmatches;
     }
+    // int SuperGlueMatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPointMatches)
+    // {
+    //     const vector<MapPoint*> vpMapPointsKF = pKF->GetMapPointMatches();
+
+    //     vpMapPointMatches = vector<MapPoint*>(F.N,static_cast<MapPoint*>(NULL));
+
+    //     // const DBoW2::FeatureVector &vFeatVecKF = pKF->mFeatVec;
+    //     const DBoW3::FeatureVector &vFeatVecKF = pKF->mFeatVec;
+
+    //     int nmatches=0;
+
+    //     vector<int> rotHist[HISTO_LENGTH];
+    //     for(int i=0;i<HISTO_LENGTH;i++)
+    //         rotHist[i].reserve(500);
+    //     const float factor = 1.0f/HISTO_LENGTH;
+
+    //     // We perform the matching over ORB that belong to the same vocabulary node (at a certain level)
+    //     // DBoW2::FeatureVector::const_iterator KFit = vFeatVecKF.begin();
+    //     // DBoW2::FeatureVector::const_iterator Fit = F.mFeatVec.begin();
+    //     // DBoW2::FeatureVector::const_iterator KFend = vFeatVecKF.end();
+    //     // DBoW2::FeatureVector::const_iterator Fend = F.mFeatVec.end();
+    //     DBoW3::FeatureVector::const_iterator KFit = vFeatVecKF.begin();
+    //     DBoW3::FeatureVector::const_iterator Fit = F.mFeatVec.begin();
+    //     DBoW3::FeatureVector::const_iterator KFend = vFeatVecKF.end();
+    //     DBoW3::FeatureVector::const_iterator Fend = F.mFeatVec.end();
+
+    //     while(KFit != KFend && Fit != Fend)
+    //     {
+    //         if(KFit->first == Fit->first)
+    //         {
+    //             const vector<unsigned int> vIndicesKF = KFit->second;
+    //             const vector<unsigned int> vIndicesF = Fit->second;
+
+    //             for(size_t iKF=0; iKF<vIndicesKF.size(); iKF++)
+    //             {
+    //                 const unsigned int realIdxKF = vIndicesKF[iKF];
+
+    //                 MapPoint* pMP = vpMapPointsKF[realIdxKF];
+
+    //                 if(!pMP)
+    //                     continue;
+
+    //                 if(pMP->isBad())
+    //                     continue;
+
+    //                 const cv::Mat &dKF= pKF->mDescriptors.row(realIdxKF);
+
+    //                 auto bestDist1=TH_MAX;
+    //                 int bestIdxF =-1 ;
+    //                 auto bestDist2=TH_MAX;
+
+    //                 auto bestDist1R=TH_MAX;
+    //                 int bestIdxFR =-1 ;
+    //                 auto bestDist2R=TH_MAX;
+
+    //                 for(size_t iF=0; iF<vIndicesF.size(); iF++)
+    //                 {
+    //                     if(F.Nleft == -1){
+    //                         const unsigned int realIdxF = vIndicesF[iF];
+
+    //                         if(vpMapPointMatches[realIdxF])
+    //                             continue;
+
+    //                         const cv::Mat &dF = F.mDescriptors.row(realIdxF);
+
+    //                         const auto dist =  DescriptorDistance(dKF,dF,mDescriptorDistMetric);
+
+    //                         if(dist<bestDist1)
+    //                         {
+    //                             bestDist2=bestDist1;
+    //                             bestDist1=dist;
+    //                             bestIdxF=realIdxF;
+    //                         }
+    //                         else if(dist<bestDist2)
+    //                         {
+    //                             bestDist2=dist;
+    //                         }
+    //                     }
+    //                     else{
+    //                         const unsigned int realIdxF = vIndicesF[iF];
+
+    //                         if(vpMapPointMatches[realIdxF])
+    //                             continue;
+
+    //                         const cv::Mat &dF = F.mDescriptors.row(realIdxF);
+
+    //                         const auto dist =  DescriptorDistance(dKF,dF,mDescriptorDistMetric);
+
+    //                         if(realIdxF < F.Nleft && dist<bestDist1){
+    //                             bestDist2=bestDist1;
+    //                             bestDist1=dist;
+    //                             bestIdxF=realIdxF;
+    //                         }
+    //                         else if(realIdxF < F.Nleft && dist<bestDist2){
+    //                             bestDist2=dist;
+    //                         }
+
+    //                         if(realIdxF >= F.Nleft && dist<bestDist1R){
+    //                             bestDist2R=bestDist1R;
+    //                             bestDist1R=dist;
+    //                             bestIdxFR=realIdxF;
+    //                         }
+    //                         else if(realIdxF >= F.Nleft && dist<bestDist2R){
+    //                             bestDist2R=dist;
+    //                         }
+    //                     }
+
+    //                 }
+
+    //                 if(bestDist1<=TH_LOW)
+    //                 {
+    //                     if(static_cast<float>(bestDist1)<mfNNratio*static_cast<float>(bestDist2))
+    //                     {
+    //                         vpMapPointMatches[bestIdxF]=pMP;
+
+    //                         const cv::KeyPoint &kp =
+    //                                 (!pKF->mpCamera2) ? pKF->mvKeysUn[realIdxKF] :
+    //                                 (realIdxKF >= pKF -> NLeft) ? pKF -> mvKeysRight[realIdxKF - pKF -> NLeft]
+    //                                                             : pKF -> mvKeys[realIdxKF];
+
+    //                         if(mbCheckOrientation)
+    //                         {
+    //                             cv::KeyPoint &Fkp =
+    //                                     (!pKF->mpCamera2 || F.Nleft == -1) ? F.mvKeys[bestIdxF] :
+    //                                     (bestIdxF >= F.Nleft) ? F.mvKeysRight[bestIdxF - F.Nleft]
+    //                                                           : F.mvKeys[bestIdxF];
+
+    //                             float rot = kp.angle-Fkp.angle;
+    //                             if(rot<0.0)
+    //                                 rot+=360.0f;
+    //                             int bin = round(rot*factor);
+    //                             if(bin==HISTO_LENGTH)
+    //                                 bin=0;
+    //                             assert(bin>=0 && bin<HISTO_LENGTH);
+    //                             rotHist[bin].push_back(bestIdxF);
+    //                         }
+    //                         nmatches++;
+    //                     }
+
+    //                     if(bestDist1R<=TH_LOW)
+    //                     {
+    //                         if(static_cast<float>(bestDist1R)<mfNNratio*static_cast<float>(bestDist2R) || true)
+    //                         {
+    //                             vpMapPointMatches[bestIdxFR]=pMP;
+
+    //                             const cv::KeyPoint &kp =
+    //                                     (!pKF->mpCamera2) ? pKF->mvKeysUn[realIdxKF] :
+    //                                     (realIdxKF >= pKF -> NLeft) ? pKF -> mvKeysRight[realIdxKF - pKF -> NLeft]
+    //                                                                 : pKF -> mvKeys[realIdxKF];
+
+    //                             if(mbCheckOrientation)
+    //                             {
+    //                                 cv::KeyPoint &Fkp =
+    //                                         (!F.mpCamera2) ? F.mvKeys[bestIdxFR] :
+    //                                         (bestIdxFR >= F.Nleft) ? F.mvKeysRight[bestIdxFR - F.Nleft]
+    //                                                                : F.mvKeys[bestIdxFR];
+
+    //                                 float rot = kp.angle-Fkp.angle;
+    //                                 if(rot<0.0)
+    //                                     rot+=360.0f;
+    //                                 int bin = round(rot*factor);
+    //                                 if(bin==HISTO_LENGTH)
+    //                                     bin=0;
+    //                                 assert(bin>=0 && bin<HISTO_LENGTH);
+    //                                 rotHist[bin].push_back(bestIdxFR);
+    //                             }
+    //                             nmatches++;
+    //                         }
+    //                     }
+    //                 }
+
+    //             }
+
+    //             KFit++;
+    //             Fit++;
+    //         }
+    //         else if(KFit->first < Fit->first)
+    //         {
+    //             KFit = vFeatVecKF.lower_bound(Fit->first);
+    //         }
+    //         else
+    //         {
+    //             Fit = F.mFeatVec.lower_bound(KFit->first);
+    //         }
+    //     }
+
+    //     if(mbCheckOrientation)
+    //     {
+    //         int ind1=-1;
+    //         int ind2=-1;
+    //         int ind3=-1;
+
+    //         ComputeThreeMaxima(rotHist,HISTO_LENGTH,ind1,ind2,ind3);
+
+    //         for(int i=0; i<HISTO_LENGTH; i++)
+    //         {
+    //             if(i==ind1 || i==ind2 || i==ind3)
+    //                 continue;
+    //             for(size_t j=0, jend=rotHist[i].size(); j<jend; j++)
+    //             {
+    //                 vpMapPointMatches[rotHist[i][j]]=static_cast<MapPoint*>(NULL);
+    //                 nmatches--;
+    //             }
+    //         }
+    //     }
+
+    //     return nmatches;
+    // }
 
     int SuperGlueMatcher::SearchByProjection(KeyFrame* pKF, Sophus::Sim3f &Scw, const vector<MapPoint*> &vpPoints,
                                        vector<MapPoint*> &vpMatched, int th, float ratioHamming)

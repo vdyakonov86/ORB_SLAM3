@@ -490,23 +490,6 @@ namespace ORB_SLAM3
 
     }
 
-    static bool compareNodes(pair<int,ExtractorNode*>& e1, pair<int,ExtractorNode*>& e2){
-        if(e1.first < e2.first){
-            return true;
-        }
-        else if(e1.first > e2.first){
-            return false;
-        }
-        else{
-            if(e1.second->UL.x < e2.second->UL.x){
-                return true;
-            }
-            else{
-                return false;
-            }
-        }
-    }
-
     vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>& vToDistributeKeys, const int &minX,
                                                          const int &maxX, const int &minY, const int &maxY, const int &N, const int &level)
     {
